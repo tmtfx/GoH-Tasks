@@ -1,6 +1,6 @@
 #pragma once
-// Synchronous HTTP helper using Haiku's native Network Kit.
-// BHttpRequest/BUrlProtocolListener live in BPrivate::Network (private headers).
+// Synchronous HTTP helper — Haiku native Network Kit (private/netservices).
+// Response body goes to BMallocIO output; status via BHttpResult downcast.
 
 #include <string>
 #include <utility>
@@ -10,15 +10,15 @@
 #include <OS.h>
 #include <Url.h>
 
-// Private Network Services headers (private/netservices/)
 #include <HttpHeaders.h>
 #include <HttpRequest.h>
+#include <HttpResult.h>
 #include <UrlProtocolListener.h>
 #include <UrlRequest.h>
 
-// Expose needed types at global scope, mirroring the rest of BeAPI convention.
 using BPrivate::Network::BHttpHeaders;
 using BPrivate::Network::BHttpRequest;
+using BPrivate::Network::BHttpResult;
 using BPrivate::Network::BUrlProtocolListener;
 using BPrivate::Network::BUrlRequest;
 
@@ -30,22 +30,18 @@ struct Response {
     bool ok() const { return statusCode >= 200 && statusCode < 300; }
 };
 
-// Collects data via callbacks; request thread fills it, wait_for_thread syncs.
+// Only captures the HTTP status code; body is written to BMallocIO by the request.
 class SyncListener : public BUrlProtocolListener {
 public:
-    void DataReceived(BUrlRequest* /*caller*/, const char* data,
-                      off_t /*position*/, ssize_t size) override
+    void RequestCompleted(BUrlRequest* caller, bool success) override
     {
-        fResponse.body.append(data, static_cast<size_t>(size));
+        if (BHttpRequest* http = dynamic_cast<BHttpRequest*>(caller)) {
+            const BHttpResult* r =
+                dynamic_cast<const BHttpResult*>(&http->Result());
+            fStatusCode = r ? r->StatusCode() : (success ? 200 : 0);
+        }
     }
-
-    void RequestCompleted(BUrlRequest* caller, bool /*success*/) override
-    {
-        if (BHttpRequest* http = dynamic_cast<BHttpRequest*>(caller))
-            fResponse.statusCode = http->Result().StatusCode();
-    }
-
-    Response fResponse;
+    int32 fStatusCode = 0;
 };
 
 inline Response request(const std::string& method,
@@ -54,11 +50,19 @@ inline Response request(const std::string& method,
                         const std::vector<std::pair<std::string,std::string>>& headers)
 {
     SyncListener listener;
+    BMallocIO responseBody;
 
-    // BUrl(const char*, bool encode) — use false to avoid double-encoding.
-    // Construct BHttpRequest directly (BUrlProtocolRoster removed in current Haiku).
-    BHttpRequest* req = new BHttpRequest(BUrl(url.c_str(), false),
-                                         /*ssl=*/false, "HTTP", &listener);
+    bool ssl = url.size() >= 5 && url.substr(0, 5) == "https";
+
+    // Constructor: BHttpRequest(url, output, ssl, protocolName, listener, context)
+    BHttpRequest* req = new BHttpRequest(
+        BUrl(url.c_str(), false),
+        &responseBody,
+        ssl,
+        "HTTP",
+        &listener,
+        nullptr);
+
     if (!req)
         return {};
 
@@ -79,7 +83,12 @@ inline Response request(const std::string& method,
     status_t exitStatus;
     wait_for_thread(req->Run(), &exitStatus);
 
-    Response resp = listener.fResponse;
+    Response resp;
+    resp.statusCode = listener.fStatusCode;
+    resp.body = std::string(
+        static_cast<const char*>(responseBody.Buffer()),
+        responseBody.BufferLength());
+
     delete req;
     return resp;
 }
