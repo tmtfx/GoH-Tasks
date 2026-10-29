@@ -238,7 +238,7 @@ void MainWindow::BuildDetailPanel(BView* parent)
     // Title
     fTitleField = new BTextControl(BRect(margin, y, pw - margin, y + 22),
                                    "title_field", "Title:", "",
-                                   new BMessage(0));
+                                   new BMessage((uint32)0));
     fTitleField->SetResizingMode(B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP);
     parent->AddChild(fTitleField);
     y += 26;
@@ -259,7 +259,7 @@ void MainWindow::BuildDetailPanel(BView* parent)
     // Due date
     float dueX = pw / 2.0f + margin;
     fDueField = new BTextControl(BRect(dueX, y, pw - margin, y + 22),
-                                 "due_field", "Due:", "", new BMessage(0));
+                                 "due_field", "Due:", "", new BMessage((uint32)0));
     fDueField->SetResizingMode(B_FOLLOW_RIGHT | B_FOLLOW_TOP);
     parent->AddChild(fDueField);
     y += 50;
