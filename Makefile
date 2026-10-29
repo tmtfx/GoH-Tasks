@@ -2,8 +2,11 @@ APP_NAME = GoH-Tasks
 SRCS = $(wildcard src/*.cpp)
 OBJS = $(SRCS:src/%.cpp=build/%.o)
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -O2 -I/boot/system/develop/headers -Isrc
-LDFLAGS = -lbe -lnetwork
+CXXFLAGS = -std=c++17 -Wall -O2 \
+	-I/boot/system/develop/headers \
+	-I/boot/system/develop/headers/private/netservices \
+	-Isrc
+LDFLAGS = -lbe -lnetwork -lnetservices
 
 all: $(APP_NAME)
 
