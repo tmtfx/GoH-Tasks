@@ -14,12 +14,14 @@
 #include <HttpRequest.h>
 #include <HttpResult.h>
 #include <UrlProtocolListener.h>
+#include <UrlProtocolRoster.h>
 #include <UrlRequest.h>
 
 using BPrivate::Network::BHttpHeaders;
 using BPrivate::Network::BHttpRequest;
 using BPrivate::Network::BHttpResult;
 using BPrivate::Network::BUrlProtocolListener;
+using BPrivate::Network::BUrlProtocolRoster;
 using BPrivate::Network::BUrlRequest;
 
 namespace HaikuHttp {
@@ -52,19 +54,22 @@ inline Response request(const std::string& method,
     SyncListener listener;
     BMallocIO responseBody;
 
-    bool ssl = url.size() >= 5 && url.substr(0, 5) == "https";
-
-    // Constructor: BHttpRequest(url, output, ssl, protocolName, listener, context)
-    BHttpRequest* req = new BHttpRequest(
+    // BHttpRequest constructor is private — use the factory.
+    // MakeRequest signature: (url, output, listener, context)
+    BUrlRequest* base = BUrlProtocolRoster::MakeRequest(
         BUrl(url.c_str(), false),
         &responseBody,
-        ssl,
-        "HTTP",
         &listener,
         nullptr);
 
-    if (!req)
+    if (!base)
         return {};
+
+    BHttpRequest* req = dynamic_cast<BHttpRequest*>(base);
+    if (!req) {
+        delete base;
+        return {};
+    }
 
     req->SetMethod(method.c_str());
 
@@ -89,7 +94,7 @@ inline Response request(const std::string& method,
         static_cast<const char*>(responseBody.Buffer()),
         responseBody.BufferLength());
 
-    delete req;
+    delete base;
     return resp;
 }
 
