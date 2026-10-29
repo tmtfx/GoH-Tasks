@@ -1,8 +1,7 @@
 #pragma once
 #include <string>
-#include <Autolock.h>
-#include <Locker.h>
 #include <OS.h>
+#include <Locker.h>
 
 class BWindow;
 
