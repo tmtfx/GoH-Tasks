@@ -1,9 +1,9 @@
 #pragma once
 #include "Task.h"
-#include <string>
-#include <vector>
 #include <map>
-#include <functional>
+#include <string>
+#include <utility>
+#include <vector>
 
 class GoogleAuth;
 
@@ -23,26 +23,20 @@ public:
     bool moveTask(const std::string& listId, const std::string& taskId,
                   const std::string& parent, const std::string& previous);
 
-    // Persist starred state to local file
     void setTaskStarred(const std::string& taskId, bool starred);
-
     const std::string& lastError() const { return fLastError; }
 
 private:
-    std::string httpGet(const std::string& url);
-    std::string httpPost(const std::string& url, const std::string& body);
-    std::string httpPatch(const std::string& url, const std::string& body);
-    std::string httpDelete(const std::string& url);
+    std::vector<std::pair<std::string,std::string>> authHeaders(bool json = false) const;
     std::string doRequest(const std::string& method, const std::string& url,
                           const std::string& body);
 
     void loadStarred();
     void saveStarred();
     bool isStarred(const std::string& taskId) const;
-    void setStarred(const std::string& taskId, bool starred);
 
-    GoogleAuth* fAuth;
-    std::string fLastError;
-    std::string fSettingsDir;
-    std::map<std::string, bool> fStarred;
+    GoogleAuth*                  fAuth;
+    std::string                  fLastError;
+    std::string                  fSettingsDir;
+    std::map<std::string, bool>  fStarred;
 };

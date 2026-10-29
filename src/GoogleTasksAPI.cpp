@@ -1,29 +1,17 @@
 #include "GoogleTasksAPI.h"
 #include "GoogleAuth.h"
+#include "HaikuHttp.h"
 #include "JsonValue.h"
 
+#include <Directory.h>
 #include <FindDirectory.h>
 #include <Path.h>
-#include <Directory.h>
-
-#include <curl/curl.h>
 
 #include <fstream>
-#include <sstream>
 #include <map>
-#include <cstring>
+#include <sstream>
 
 static const std::string kBaseUrl = "https://tasks.googleapis.com/tasks/v1";
-
-namespace {
-
-size_t curlWriteCb(char* ptr, size_t size, size_t nmemb, void* userdata) {
-    std::string* s = static_cast<std::string*>(userdata);
-    s->append(ptr, size * nmemb);
-    return size * nmemb;
-}
-
-} // anonymous namespace
 
 GoogleTasksAPI::GoogleTasksAPI(GoogleAuth* auth)
     : fAuth(auth)
@@ -48,36 +36,22 @@ void GoogleTasksAPI::loadStarred()
                          std::istreambuf_iterator<char>());
     try {
         JsonValue j = JsonValue::parse(content);
-        if (j.isObject()) {
-            // Iterate: we stored {"taskId": true, ...}
-            // We'll re-serialize and iterate manually via known access
-            // Since JsonValue doesn't expose iterator, we re-parse
-            // Actually let's do it properly by adding an iteration method.
-            // For now, we store the raw JSON and check membership by re-parsing
-            // Use a simpler approach: store and check.
-            // We rebuild by knowing that j is an object. Let's iterate
-            // via a workaround: serialize→find keys with a mini-parser.
-            // Alternative: extend JsonValue with keys(). For now use the
-            // serialize trick to find all true keys.
-            std::string serialized = j.serialize();
-            // Parse key:true pairs
-            size_t pos = 0;
-            while ((pos = serialized.find("\"", pos)) != std::string::npos) {
-                size_t keyStart = pos + 1;
-                size_t keyEnd   = serialized.find("\"", keyStart);
-                if (keyEnd == std::string::npos) break;
-                std::string key = serialized.substr(keyStart, keyEnd - keyStart);
-                // Check for :true after the key
-                size_t colonPos = serialized.find(":", keyEnd);
-                if (colonPos == std::string::npos) break;
-                size_t valStart = colonPos + 1;
-                while (valStart < serialized.size() && serialized[valStart] == ' ')
-                    ++valStart;
-                if (serialized.substr(valStart, 4) == "true") {
-                    fStarred[key] = true;
-                }
-                pos = keyEnd + 1;
-            }
+        if (!j.isObject()) return;
+        // Scan serialized form for "key":true pairs
+        std::string s = j.serialize();
+        size_t pos = 0;
+        while ((pos = s.find('"', pos)) != std::string::npos) {
+            size_t ks = pos + 1;
+            size_t ke = s.find('"', ks);
+            if (ke == std::string::npos) break;
+            std::string key = s.substr(ks, ke - ks);
+            size_t col = s.find(':', ke);
+            if (col == std::string::npos) break;
+            size_t vs = col + 1;
+            while (vs < s.size() && s[vs] == ' ') ++vs;
+            if (s.substr(vs, 4) == "true")
+                fStarred[key] = true;
+            pos = ke + 1;
         }
     } catch (...) {}
 }
@@ -87,16 +61,15 @@ void GoogleTasksAPI::saveStarred()
     std::string path = fSettingsDir + "/starred.json";
     std::ofstream f(path);
     if (!f.is_open()) return;
-    f << "{";
+    f << '{';
     bool first = true;
-    for (auto& kv : fStarred) {
-        if (kv.second) {
-            if (!first) f << ",";
-            f << "\"" << JsonValue::escape(kv.first) << "\":true";
-            first = false;
-        }
+    for (auto& [id, val] : fStarred) {
+        if (!val) continue;
+        if (!first) f << ',';
+        f << '"' << JsonValue::escape(id) << "\":true";
+        first = false;
     }
-    f << "}";
+    f << '}';
 }
 
 bool GoogleTasksAPI::isStarred(const std::string& taskId) const
@@ -105,7 +78,7 @@ bool GoogleTasksAPI::isStarred(const std::string& taskId) const
     return it != fStarred.end() && it->second;
 }
 
-void GoogleTasksAPI::setStarred(const std::string& taskId, bool starred)
+void GoogleTasksAPI::setTaskStarred(const std::string& taskId, bool starred)
 {
     if (starred)
         fStarred[taskId] = true;
@@ -114,94 +87,31 @@ void GoogleTasksAPI::setStarred(const std::string& taskId, bool starred)
     saveStarred();
 }
 
-// ---- HTTP helpers ----
+// ---- HTTP helpers (native Haiku Network Kit via HaikuHttp) ----
+
+std::vector<std::pair<std::string,std::string>> GoogleTasksAPI::authHeaders(bool json) const
+{
+    std::string token = fAuth->getAccessToken();
+    std::vector<std::pair<std::string,std::string>> h;
+    h.push_back({"Authorization", "Bearer " + token});
+    if (json)
+        h.push_back({"Content-Type", "application/json"});
+    return h;
+}
 
 std::string GoogleTasksAPI::doRequest(const std::string& method,
                                       const std::string& url,
                                       const std::string& body)
 {
-    std::string token = fAuth->getAccessToken();
-    if (token.empty()) {
-        fLastError = "Not authenticated";
-        return "";
-    }
+    bool hasBody = !body.empty();
+    auto resp = HaikuHttp::request(method, url, body, authHeaders(hasBody));
 
-    CURL* curl = curl_easy_init();
-    if (!curl) {
-        fLastError = "curl_easy_init failed";
-        return "";
-    }
-
-    std::string response;
-    std::string authHeader = "Authorization: Bearer " + token;
-    struct curl_slist* headers = nullptr;
-    headers = curl_slist_append(headers, authHeader.c_str());
-    headers = curl_slist_append(headers, "Accept: application/json");
-
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCb);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-
-    if (method == "POST") {
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_POST, 1L);
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)body.size());
-    } else if (method == "PATCH") {
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PATCH");
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)body.size());
-    } else if (method == "PUT") {
-        headers = curl_slist_append(headers, "Content-Type: application/json");
-        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
-        curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)body.size());
-    } else if (method == "DELETE") {
-        curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
-    }
-    // GET is default
-
-    CURLcode res = curl_easy_perform(curl);
-
-    long httpCode = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
-    curl_slist_free_all(headers);
-    curl_easy_cleanup(curl);
-
-    if (res != CURLE_OK) {
-        fLastError = std::string("CURL error: ") + curl_easy_strerror(res);
-        return "";
-    }
-    if (httpCode >= 400) {
-        fLastError = "HTTP " + std::to_string(httpCode) + ": " + response;
+    if (!resp.ok()) {
+        fLastError = "HTTP " + std::to_string(resp.statusCode) + ": " + resp.body;
         return "";
     }
     fLastError.clear();
-    return response;
-}
-
-std::string GoogleTasksAPI::httpGet(const std::string& url) {
-    return doRequest("GET", url, "");
-}
-
-std::string GoogleTasksAPI::httpPost(const std::string& url, const std::string& body) {
-    return doRequest("POST", url, body);
-}
-
-std::string GoogleTasksAPI::httpPatch(const std::string& url, const std::string& body) {
-    return doRequest("PATCH", url, body);
-}
-
-std::string GoogleTasksAPI::httpDelete(const std::string& url) {
-    return doRequest("DELETE", url, "");
+    return resp.body;
 }
 
 // ---- API methods ----
@@ -210,23 +120,22 @@ bool GoogleTasksAPI::getTaskLists(std::vector<TaskList>& lists)
 {
     lists.clear();
     std::string url = kBaseUrl + "/users/@me/lists?maxResults=100";
-    std::string response = httpGet(url);
-    if (response.empty()) return false;
+    std::string r = doRequest("GET", url, "");
+    if (r.empty()) return false;
 
     try {
-        JsonValue j = JsonValue::parse(response);
+        JsonValue j = JsonValue::parse(r);
         const JsonValue& items = j["items"];
         for (size_t i = 0; i < items.size(); ++i) {
             TaskList tl;
             tl.id      = items[i]["id"].str();
             tl.title   = items[i]["title"].str();
             tl.updated = items[i]["updated"].str();
-            if (!tl.id.empty())
-                lists.push_back(tl);
+            if (!tl.id.empty()) lists.push_back(tl);
         }
         return true;
     } catch (...) {
-        fLastError = "Failed to parse task lists response";
+        fLastError = "Errore nel parsing della lista";
         return false;
     }
 }
@@ -236,14 +145,13 @@ bool GoogleTasksAPI::getTasks(const std::string& listId, std::vector<Task>& task
     tasks.clear();
     std::string url = kBaseUrl + "/lists/" + listId +
                       "/tasks?showHidden=true&showCompleted=true&maxResults=100";
-    std::string response = httpGet(url);
-    if (response.empty()) return false;
+    std::string r = doRequest("GET", url, "");
+    if (r.empty()) return false;
 
-    // Refresh starred state
     loadStarred();
 
     try {
-        JsonValue j = JsonValue::parse(response);
+        JsonValue j = JsonValue::parse(r);
         const JsonValue& items = j["items"];
         for (size_t i = 0; i < items.size(); ++i) {
             Task t;
@@ -256,12 +164,11 @@ bool GoogleTasksAPI::getTasks(const std::string& listId, std::vector<Task>& task
             t.selfLink = items[i]["selfLink"].str();
             t.starred  = isStarred(t.id);
             if (t.status.empty()) t.status = "needsAction";
-            if (!t.id.empty())
-                tasks.push_back(t);
+            if (!t.id.empty()) tasks.push_back(t);
         }
         return true;
     } catch (...) {
-        fLastError = "Failed to parse tasks response";
+        fLastError = "Errore nel parsing dei task";
         return false;
     }
 }
@@ -270,20 +177,17 @@ bool GoogleTasksAPI::createTask(const std::string& listId, const std::string& ti
                                 const std::string& notes, const std::string& due,
                                 Task& created)
 {
-    std::string body = "{";
-    body += "\"title\":\"" + JsonValue::escape(title) + "\"";
-    if (!notes.empty())
-        body += ",\"notes\":\"" + JsonValue::escape(notes) + "\"";
-    if (!due.empty())
-        body += ",\"due\":\"" + JsonValue::escape(due) + "\"";
-    body += "}";
+    std::string body = "{\"title\":\"" + JsonValue::escape(title) + "\"";
+    if (!notes.empty()) body += ",\"notes\":\"" + JsonValue::escape(notes) + "\"";
+    if (!due.empty())   body += ",\"due\":\""   + JsonValue::escape(due)   + "\"";
+    body += '}';
 
     std::string url = kBaseUrl + "/lists/" + listId + "/tasks";
-    std::string response = httpPost(url, body);
-    if (response.empty()) return false;
+    std::string r = doRequest("POST", url, body);
+    if (r.empty()) return false;
 
     try {
-        JsonValue j = JsonValue::parse(response);
+        JsonValue j = JsonValue::parse(r);
         created.id       = j["id"].str();
         created.title    = j["title"].str();
         created.notes    = j["notes"].str();
@@ -295,85 +199,83 @@ bool GoogleTasksAPI::createTask(const std::string& listId, const std::string& ti
         if (created.status.empty()) created.status = "needsAction";
         return !created.id.empty();
     } catch (...) {
-        fLastError = "Failed to parse create task response";
+        fLastError = "Errore nella creazione del task";
         return false;
     }
 }
 
 bool GoogleTasksAPI::updateTask(const std::string& listId, const Task& task)
 {
-    std::string body = "{";
-    body += "\"id\":\"" + JsonValue::escape(task.id) + "\"";
-    body += ",\"title\":\"" + JsonValue::escape(task.title) + "\"";
-    if (!task.notes.empty())
-        body += ",\"notes\":\"" + JsonValue::escape(task.notes) + "\"";
-    body += ",\"status\":\"" + JsonValue::escape(task.status) + "\"";
-    if (!task.due.empty())
-        body += ",\"due\":\"" + JsonValue::escape(task.due) + "\"";
-    body += "}";
+    std::string body = "{\"id\":\""     + JsonValue::escape(task.id)     + "\""
+                     + ",\"title\":\""  + JsonValue::escape(task.title)  + "\""
+                     + ",\"status\":\"" + JsonValue::escape(task.status) + "\"";
+    if (!task.notes.empty()) body += ",\"notes\":\"" + JsonValue::escape(task.notes) + "\"";
+    if (!task.due.empty())   body += ",\"due\":\""   + JsonValue::escape(task.due)   + "\"";
+    body += '}';
 
     std::string url = kBaseUrl + "/lists/" + listId + "/tasks/" + task.id;
-    std::string response = doRequest("PUT", url, body);
-    if (response.empty()) return false;
+    std::string r = doRequest("PUT", url, body);
+    if (r.empty()) return false;
 
-    // Update starred state
-    setStarred(task.id, task.starred);
+    setTaskStarred(task.id, task.starred);
     return true;
 }
 
 bool GoogleTasksAPI::deleteTask(const std::string& listId, const std::string& taskId)
 {
     std::string url = kBaseUrl + "/lists/" + listId + "/tasks/" + taskId;
-    std::string response = httpDelete(url);
-    // DELETE returns empty body on success (204)
-    if (!fLastError.empty()) return false;
-    setStarred(taskId, false);
+
+    // DELETE returns 204 No Content on success — body is empty but ok() is true
+    auto resp = HaikuHttp::request("DELETE", url, "", authHeaders(false));
+    if (resp.statusCode != 204 && resp.statusCode != 200 && !resp.ok()) {
+        fLastError = "HTTP " + std::to_string(resp.statusCode);
+        return false;
+    }
+    fLastError.clear();
+    setTaskStarred(taskId, false);
     return true;
 }
 
 bool GoogleTasksAPI::completeTask(const std::string& listId, const std::string& taskId,
                                    bool complete)
 {
-    std::string body;
-    if (complete) {
-        body = "{\"status\":\"completed\"}";
-    } else {
-        body = "{\"status\":\"needsAction\",\"completed\":null}";
-    }
+    std::string body = complete
+        ? "{\"status\":\"completed\"}"
+        : "{\"status\":\"needsAction\",\"completed\":null}";
     std::string url = kBaseUrl + "/lists/" + listId + "/tasks/" + taskId;
-    std::string response = httpPatch(url, body);
-    return !response.empty() || fLastError.empty();
+    std::string r = doRequest("PATCH", url, body);
+    return !r.empty() || fLastError.empty();
 }
 
 bool GoogleTasksAPI::createTaskList(const std::string& title, TaskList& created)
 {
     std::string body = "{\"title\":\"" + JsonValue::escape(title) + "\"}";
     std::string url  = kBaseUrl + "/users/@me/lists";
-    std::string response = httpPost(url, body);
-    if (response.empty()) return false;
+    std::string r    = doRequest("POST", url, body);
+    if (r.empty()) return false;
 
     try {
-        JsonValue j = JsonValue::parse(response);
+        JsonValue j = JsonValue::parse(r);
         created.id      = j["id"].str();
         created.title   = j["title"].str();
         created.updated = j["updated"].str();
         return !created.id.empty();
     } catch (...) {
-        fLastError = "Failed to parse create list response";
+        fLastError = "Errore nella creazione della lista";
         return false;
     }
 }
 
 bool GoogleTasksAPI::deleteTaskList(const std::string& listId)
 {
-    std::string url = kBaseUrl + "/users/@me/lists/" + listId;
-    httpDelete(url);
-    return fLastError.empty();
-}
-
-void GoogleTasksAPI::setTaskStarred(const std::string& taskId, bool starred)
-{
-    setStarred(taskId, starred);
+    std::string url  = kBaseUrl + "/users/@me/lists/" + listId;
+    auto resp = HaikuHttp::request("DELETE", url, "", authHeaders(false));
+    if (resp.statusCode != 204 && resp.statusCode != 200 && !resp.ok()) {
+        fLastError = "HTTP " + std::to_string(resp.statusCode);
+        return false;
+    }
+    fLastError.clear();
+    return true;
 }
 
 bool GoogleTasksAPI::moveTask(const std::string& listId, const std::string& taskId,
@@ -382,10 +284,9 @@ bool GoogleTasksAPI::moveTask(const std::string& listId, const std::string& task
     std::string url = kBaseUrl + "/lists/" + listId + "/tasks/" + taskId + "/move?";
     if (!parent.empty())   url += "parent="   + parent   + "&";
     if (!previous.empty()) url += "previous=" + previous + "&";
-    // Remove trailing & or ?
     if (!url.empty() && (url.back() == '&' || url.back() == '?'))
         url.pop_back();
 
-    std::string response = httpPost(url, "");
-    return !response.empty() || fLastError.empty();
+    std::string r = doRequest("POST", url, "");
+    return !r.empty() || fLastError.empty();
 }

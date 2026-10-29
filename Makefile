@@ -3,7 +3,7 @@ SRCS = $(wildcard src/*.cpp)
 OBJS = $(SRCS:src/%.cpp=build/%.o)
 CXX = g++
 CXXFLAGS = -std=c++17 -Wall -O2 -I/boot/system/develop/headers -Isrc
-LDFLAGS = -lbe -lnetwork -lcurl
+LDFLAGS = -lbe -lnetwork
 
 all: $(APP_NAME)
 
