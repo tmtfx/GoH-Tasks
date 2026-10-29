@@ -1,0 +1,6 @@
+build/
+.claude/
+GoH-Tasks
+*.o
+*.swp
+.DS_Store
