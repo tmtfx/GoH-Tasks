@@ -53,6 +53,8 @@ private:
     void RefreshTaskDisplay();
     void ShowTaskDetail(const Task& task);
     void HideTaskDetail();
+    void RevealDetailPanel();
+    void ConcealDetailPanel();
     void UpdateToolbarState();
     void ShowError(const std::string& msg);
     void ShowStatus(const std::string& msg);
@@ -82,6 +84,8 @@ private:
     BButton*      fCancelBtn;
     BStringView*  fStatusBar;
     BView*        fDetailPanel;
+    BScrollView*  fListsScroll;
+    BScrollView*  fTasksScroll;
 
     std::vector<TaskList> fTaskLists;
     std::vector<Task>     fTasks;

@@ -25,6 +25,8 @@
 #include <algorithm>
 #include <cctype>
 
+static const float kDetailPanelHeight = 175.0f;
+
 // ---- Thread data structs ----
 
 struct LoadListsData {
@@ -73,7 +75,8 @@ MainWindow::MainWindow(GoogleAuth* auth, GoogleTasksAPI* api)
       fSearchField(nullptr), fTitleField(nullptr),
       fNotesView(nullptr), fDueField(nullptr),
       fSaveBtn(nullptr), fCancelBtn(nullptr),
-      fStatusBar(nullptr), fDetailPanel(nullptr)
+      fStatusBar(nullptr), fDetailPanel(nullptr),
+      fListsScroll(nullptr), fTasksScroll(nullptr)
 {
     BuildUI();
     CenterOnScreen();
@@ -129,16 +132,24 @@ void MainWindow::BuildMenuBar()
 
 void MainWindow::BuildToolbar(BView* parent, float& y)
 {
-    float toolbarHeight = 36.0f;
+    // Probe the button's natural height for this system's font/theme instead
+    // of guessing a pixel value — avoids label clipping on larger fonts.
+    BButton* probe = new BButton(BRect(0, 0, 10, 10), "probe", "Mg", nullptr);
+    float bh = 0.0f;
+    probe->GetPreferredSize(nullptr, &bh);
+    delete probe;
+    if (bh < 24.0f) bh = 24.0f;
+
+    float margin = 6.0f;
+    float toolbarHeight = bh + margin * 2.0f;
     BView* toolbar = new BView(BRect(0, y, parent->Bounds().Width(), y + toolbarHeight),
                                "toolbar", B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP, B_WILL_DRAW);
     toolbar->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
     parent->AddChild(toolbar);
 
     float bx = 6.0f;
-    float by = 4.0f;
+    float by = margin;
     float bw = 90.0f;
-    float bh = 26.0f;
 
     fNewTaskBtn = new BButton(BRect(bx, by, bx + bw, by + bh), "new_task",
                               "New Task", new BMessage(MSG_NEW_TASK));
@@ -165,56 +176,70 @@ void MainWindow::BuildToolbar(BView* parent, float& y)
     toolbar->AddChild(fRefreshBtn);
     bx += bw + 4;
 
-    // Search field — aligned to the right area
+    // Search field — aligned to the right area, vertically centered on the buttons
     float searchX = bx + 10.0f;
     float searchW = parent->Bounds().Width() - searchX - 10.0f;
     if (searchW < 100) searchW = 100;
-    fSearchField = new BTextControl(BRect(searchX, by - 2, searchX + searchW, by + bh + 2),
+    fSearchField = new BTextControl(BRect(searchX, by, searchX + searchW, by + bh),
                                     "search", "Search:", "",
                                     new BMessage(MSG_SEARCH_CHANGED));
     fSearchField->SetModificationMessage(new BMessage(MSG_SEARCH_CHANGED));
     toolbar->AddChild(fSearchField);
 
-    y += toolbarHeight + 2;
+    float searchPrefH = 0.0f;
+    fSearchField->GetPreferredSize(nullptr, &searchPrefH);
+    if (searchPrefH > 0.0f) {
+        float centerY = by + bh / 2.0f;
+        fSearchField->ResizeTo(searchW, searchPrefH);
+        fSearchField->MoveTo(searchX, centerY - searchPrefH / 2.0f);
+    }
+
+    y += toolbarHeight + 8;
 }
 
 void MainWindow::BuildMainArea(BView* parent, float y)
 {
     float statusH  = 22.0f;
-    float detailH  = 130.0f;
-    float mainH    = parent->Bounds().Height() - y - statusH - detailH - 4;
+    // Lists start at full height — the detail panel is hidden by default and
+    // only steals space from them when actually revealed (see RevealDetailPanel()).
+    float mainH    = parent->Bounds().Height() - y - statusH - 2;
     float totalW   = parent->Bounds().Width();
     float listsW   = 180.0f;
 
     // --- Task lists panel (left) ---
-    fTaskListsView = new BListView(BRect(0, 0, listsW - B_V_SCROLL_BAR_WIDTH - 2, mainH - 2),
-                                   "task_lists", B_SINGLE_SELECTION_LIST);
+    // Inset for the vertical scrollbar and the fancy border on both axes
+    // (top+bottom, not just one) — using the full scroll-area size here
+    // instead left no room for the scrollbar at all.
+    fTaskListsView = new BListView(BRect(0, 0, listsW - B_V_SCROLL_BAR_WIDTH - 6, mainH - 4),
+                                   "task_lists", B_SINGLE_SELECTION_LIST, B_FOLLOW_ALL);
     fTaskListsView->SetSelectionMessage(new BMessage(MSG_LIST_SELECTED));
-    BScrollView* listsScroll = new BScrollView("lists_scroll", fTaskListsView,
-                                               B_FOLLOW_LEFT | B_FOLLOW_TOP_BOTTOM,
-                                               0, false, true, B_FANCY_BORDER);
-    listsScroll->MoveTo(0, y);
-    listsScroll->ResizeTo(listsW, mainH);
-    parent->AddChild(listsScroll);
+    fListsScroll = new BScrollView("lists_scroll", fTaskListsView,
+                                   B_FOLLOW_LEFT | B_FOLLOW_TOP_BOTTOM,
+                                   0, false, true, B_FANCY_BORDER);
+    fListsScroll->MoveTo(0, y);
+    fListsScroll->ResizeTo(listsW, mainH);
+    parent->AddChild(fListsScroll);
 
     // --- Tasks panel (right) ---
     float tasksX = listsW + 2;
     float tasksW = totalW - tasksX;
-    fTasksView = new BListView(BRect(0, 0, tasksW - B_V_SCROLL_BAR_WIDTH - 2, mainH - 2),
-                               "tasks", B_SINGLE_SELECTION_LIST);
+    fTasksView = new BListView(BRect(0, 0, tasksW - B_V_SCROLL_BAR_WIDTH - 6, mainH - 4),
+                               "tasks", B_SINGLE_SELECTION_LIST, B_FOLLOW_ALL);
     fTasksView->SetSelectionMessage(new BMessage(MSG_TASK_SELECTED));
     fTasksView->SetInvocationMessage(new BMessage(MSG_TASK_SELECTED));
-    BScrollView* tasksScroll = new BScrollView("tasks_scroll", fTasksView,
-                                               B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP_BOTTOM,
-                                               0, false, true, B_FANCY_BORDER);
-    tasksScroll->MoveTo(tasksX, y);
-    tasksScroll->ResizeTo(tasksW, mainH);
-    parent->AddChild(tasksScroll);
+    fTasksScroll = new BScrollView("tasks_scroll", fTasksView,
+                                   B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP_BOTTOM,
+                                   0, false, true, B_FANCY_BORDER);
+    fTasksScroll->MoveTo(tasksX, y);
+    fTasksScroll->ResizeTo(tasksW, mainH);
+    parent->AddChild(fTasksScroll);
 
-    float detailY = y + mainH + 2;
-
-    // --- Detail panel ---
-    fDetailPanel = new BView(BRect(0, detailY, totalW, detailY + detailH),
+    // --- Detail panel (hidden until a task is selected/created; see
+    //     RevealDetailPanel()/ConcealDetailPanel() for the show/hide + resize).
+    //     Positioned flush below the full-height lists so it never overlaps
+    //     them while hidden; RevealDetailPanel() moves it up when shown. ---
+    float detailY = y + mainH;
+    fDetailPanel = new BView(BRect(0, detailY, totalW, detailY + kDetailPanelHeight),
                              "detail_panel", B_FOLLOW_LEFT_RIGHT | B_FOLLOW_BOTTOM,
                              B_WILL_DRAW);
     fDetailPanel->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
@@ -235,41 +260,57 @@ void MainWindow::BuildMainArea(BView* parent, float y)
 void MainWindow::BuildDetailPanel(BView* parent)
 {
     float pw = parent->Bounds().Width();
-    float y  = 4.0f;
-    float margin = 8.0f;
+    float y  = 10.0f;
+    float margin = 10.0f;
+    float fieldH  = 24.0f;
 
-    // Title
-    fTitleField = new BTextControl(BRect(margin, y, pw - margin, y + 22),
+    // Title — divider sized to the label itself, not the default ~50% split.
+    fTitleField = new BTextControl(BRect(margin, y, pw - margin, y + fieldH),
                                    "title_field", "Title:", "",
                                    new BMessage((uint32)0));
+    fTitleField->SetDivider(fTitleField->StringWidth("Title:") + 8.0f);
     fTitleField->SetResizingMode(B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP);
     parent->AddChild(fTitleField);
-    y += 26;
+    y += fieldH + 12.0f;
 
-    // Notes
-    BRect notesRect(margin + 40, y, pw / 2.0f, y + 40);
+    // Notes — own label (BTextView has none built in) + a properly sized box.
+    float notesRowY = y;
+    float notesRowH = 76.0f;
+
+    float notesLabelW = be_plain_font->StringWidth("Notes:") + 4.0f;
+    BStringView* notesLabel = new BStringView(
+        BRect(margin, notesRowY + 4, margin + notesLabelW, notesRowY + 20),
+        "notes_label", "Notes:");
+    notesLabel->SetResizingMode(B_FOLLOW_LEFT | B_FOLLOW_TOP);
+    parent->AddChild(notesLabel);
+
+    float notesX = margin + notesLabelW + 8.0f;
+    float notesW = pw / 2.0f - notesX;
+    BRect notesRect(0, 0, notesW, notesRowH);
     fNotesView = new BTextView(notesRect, "notes_view",
-                               notesRect.OffsetToCopy(0, 0),
+                               notesRect.InsetByCopy(4, 4),
                                B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP);
     fNotesView->SetWordWrap(true);
     BScrollView* notesScroll = new BScrollView("notes_scroll", fNotesView,
-                                               B_FOLLOW_LEFT | B_FOLLOW_TOP,
+                                               B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP,
                                                0, false, true, B_FANCY_BORDER);
-    notesScroll->MoveTo(margin, y);
-    notesScroll->ResizeTo(pw / 2.0f - margin * 2, 44);
+    notesScroll->MoveTo(notesX, notesRowY);
+    notesScroll->ResizeTo(notesW, notesRowH);
     parent->AddChild(notesScroll);
 
-    // Due date
+    // Due date — aligned with the top of the notes row, same divider treatment.
     float dueX = pw / 2.0f + margin;
-    fDueField = new BTextControl(BRect(dueX, y, pw - margin, y + 22),
+    fDueField = new BTextControl(BRect(dueX, notesRowY, pw - margin, notesRowY + fieldH),
                                  "due_field", "Due:", "", new BMessage((uint32)0));
+    fDueField->SetDivider(fDueField->StringWidth("Due:") + 8.0f);
     fDueField->SetResizingMode(B_FOLLOW_RIGHT | B_FOLLOW_TOP);
     parent->AddChild(fDueField);
-    y += 50;
+
+    y = notesRowY + notesRowH + 14.0f;
 
     // Save / Cancel buttons
     float btnW = 80.0f;
-    float btnH = 24.0f;
+    float btnH = 26.0f;
     fSaveBtn = new BButton(BRect(margin, y, margin + btnW, y + btnH),
                            "save_btn", "Save", new BMessage(MSG_SAVE_TASK));
     fSaveBtn->MakeDefault(true);
@@ -463,14 +504,46 @@ void MainWindow::ShowTaskDetail(const Task& task)
     if (fNotesView)  fNotesView->SetText(task.notes.c_str());
     if (fDueField)   fDueField->SetText(task.due.c_str());
 
-    fDetailPanel->Show();
+    RevealDetailPanel();
 }
 
 void MainWindow::HideTaskDetail()
 {
     fDetailVisible = false;
     fIsNewTask = false;
-    if (fDetailPanel) fDetailPanel->Hide();
+    ConcealDetailPanel();
+}
+
+// Shows the detail panel, shrinking the lists above it to make room.
+// Safe to call even if already revealed (Hide()/Show() use a nested
+// counter, so calling either one more than once would leave it stuck).
+void MainWindow::RevealDetailPanel()
+{
+    if (!fDetailPanel || !fDetailPanel->IsHidden())
+        return;
+
+    if (fListsScroll && fTasksScroll) {
+        float shrinkBy = kDetailPanelHeight + 2.0f;
+        fListsScroll->ResizeBy(0, -shrinkBy);
+        fTasksScroll->ResizeBy(0, -shrinkBy);
+        BRect listsFrame = fListsScroll->Frame();
+        fDetailPanel->MoveTo(fDetailPanel->Frame().left, listsFrame.bottom + 2);
+    }
+    fDetailPanel->Show();
+}
+
+// Hides the detail panel, growing the lists back to fill the freed space.
+void MainWindow::ConcealDetailPanel()
+{
+    if (!fDetailPanel || fDetailPanel->IsHidden())
+        return;
+
+    fDetailPanel->Hide();
+    if (fListsScroll && fTasksScroll) {
+        float growBy = kDetailPanelHeight + 2.0f;
+        fListsScroll->ResizeBy(0, growBy);
+        fTasksScroll->ResizeBy(0, growBy);
+    }
 }
 
 void MainWindow::UpdateToolbarState()
@@ -621,7 +694,7 @@ void MainWindow::MessageReceived(BMessage* msg)
         if (fTitleField) fTitleField->SetText("");
         if (fNotesView)  fNotesView->SetText("");
         if (fDueField)   fDueField->SetText("");
-        if (fDetailPanel) fDetailPanel->Show();
+        RevealDetailPanel();
         if (fTitleField) fTitleField->MakeFocus(true);
         break;
     }
@@ -669,6 +742,9 @@ void MainWindow::MessageReceived(BMessage* msg)
 
     case MSG_CANCEL_EDIT: {
         HideTaskDetail();
+        fTasksView->DeselectAll();
+        fSelectedTaskIndex = -1;
+        UpdateToolbarState();
         break;
     }
 
