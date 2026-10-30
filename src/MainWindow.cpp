@@ -373,40 +373,65 @@ void MainWindow::BuildToolbar(BView* parent, float& y)
 
     float bx = 6.0f;
     float by = margin;
-    float bw = 90.0f;
 
-    fNewTaskBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "new_task",
-                                  B_TRANSLATE("New Task"), new BMessage(MSG_NEW_TASK));
+    // Button width follows its (translated) label instead of a fixed guess —
+    // labels run much longer in some languages than in English and would
+    // otherwise get clipped.
+    const float kBtnPadding = 28.0f;  // 14px either side of the label
+    const float kBtnMinW    = 64.0f;
+    auto labelWidth = [&](const char* label) -> float {
+        float w = be_plain_font->StringWidth(label) + kBtnPadding;
+        return w < kBtnMinW ? kBtnMinW : w;
+    };
+
+    const char* newTaskLabel  = B_TRANSLATE("New Task");
+    const char* completeLabel = B_TRANSLATE("Complete");
+    const char* starLabel     = B_TRANSLATE("Star");
+    const char* deleteLabel   = B_TRANSLATE("Delete");
+    const char* refreshLabel  = B_TRANSLATE("Refresh");
+
+    float newTaskW  = labelWidth(newTaskLabel);
+    float completeW = labelWidth(completeLabel);
+    float starW     = labelWidth(starLabel);
+    float deleteW   = labelWidth(deleteLabel);
+    float refreshW  = labelWidth(refreshLabel);
+
+    fNewTaskBtn = new RoundButton(BRect(bx, by, bx + newTaskW, by + bh), "new_task",
+                                  newTaskLabel, new BMessage(MSG_NEW_TASK));
     toolbar->AddChild(fNewTaskBtn);
-    bx += bw + 4;
+    bx += newTaskW + 4;
 
-    fCompleteBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "complete",
-                                   B_TRANSLATE("Complete"), new BMessage(MSG_TOGGLE_COMPLETE));
+    fCompleteBtn = new RoundButton(BRect(bx, by, bx + completeW, by + bh), "complete",
+                                   completeLabel, new BMessage(MSG_TOGGLE_COMPLETE));
     toolbar->AddChild(fCompleteBtn);
-    bx += bw + 4;
+    bx += completeW + 4;
 
-    fStarBtn = new RoundButton(BRect(bx, by, bx + 60, by + bh), "star",
-                               B_TRANSLATE("Star"), new BMessage(MSG_TOGGLE_STAR));
+    fStarBtn = new RoundButton(BRect(bx, by, bx + starW, by + bh), "star",
+                               starLabel, new BMessage(MSG_TOGGLE_STAR));
     toolbar->AddChild(fStarBtn);
-    bx += 64;
+    bx += starW + 4;
 
-    fDeleteBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "delete",
-                                 B_TRANSLATE("Delete"), new BMessage(MSG_DELETE_TASK));
+    fDeleteBtn = new RoundButton(BRect(bx, by, bx + deleteW, by + bh), "delete",
+                                 deleteLabel, new BMessage(MSG_DELETE_TASK));
     toolbar->AddChild(fDeleteBtn);
-    bx += bw + 4;
+    bx += deleteW + 4;
 
-    fRefreshBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "refresh",
-                                  B_TRANSLATE("Refresh"), new BMessage(MSG_REFRESH));
+    fRefreshBtn = new RoundButton(BRect(bx, by, bx + refreshW, by + bh), "refresh",
+                                  refreshLabel, new BMessage(MSG_REFRESH));
     toolbar->AddChild(fRefreshBtn);
-    bx += bw + 4;
+    bx += refreshW + 4;
 
-    // Search field — aligned to the right area, vertically centered on the buttons
+    // Search field — aligned to the right area, vertically centered on the
+    // buttons. Divider sized to the label itself (like Title:/Notes:)
+    // instead of the default ~50% split, so the field gets most of the width.
     float searchX = bx + 10.0f;
     float searchW = parent->Bounds().Width() - searchX - 10.0f;
     if (searchW < 100) searchW = 100;
+    const char* searchLabel = B_TRANSLATE("Search:");
     fSearchField = new BTextControl(BRect(searchX, by, searchX + searchW, by + bh),
-                                    "search", B_TRANSLATE("Search:"), "",
+                                    "search", searchLabel, "",
                                     new BMessage(MSG_SEARCH_CHANGED));
+    fSearchField->SetDivider(be_plain_font->StringWidth(searchLabel) + 8.0f);
     fSearchField->SetModificationMessage(new BMessage(MSG_SEARCH_CHANGED));
     toolbar->AddChild(fSearchField);
 
@@ -538,10 +563,14 @@ void MainWindow::BuildDetailPanel(BView* parent)
     notesScroll->ResizeTo(notesW, notesRowH);
     parent->AddChild(notesScroll);
 
-    // Due date — a fixed-width clickable label (opens the date picker) plus
-    // a small round "x" button to clear it. See ShowDatePicker()/UpdateDueLabel().
+    // Due date — a clickable label (opens the date picker) plus a small
+    // round "x" button to clear it. See ShowDatePicker()/UpdateDueLabel().
+    // Sized to fill the right half of the panel (minus the clear button)
+    // rather than a fixed guess — long translations of "Due: <date>" were
+    // getting clipped while this side of the panel sat mostly empty.
     float dueX = pw / 2.0f + margin;
-    float dueLabelW = 160.0f;
+    float dueLabelW = pw - margin - dueX - fieldH - 6.0f;
+    if (dueLabelW < 120.0f) dueLabelW = 120.0f;
     fDueLabel = new DueDateLabel(BRect(dueX, notesRowY, dueX + dueLabelW, notesRowY + fieldH),
                                  "due_label");
     fDueLabel->SetResizingMode(B_FOLLOW_RIGHT | B_FOLLOW_TOP);

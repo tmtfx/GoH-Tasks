@@ -82,7 +82,7 @@ public:
 
         float btnW = 110;
         float btnH = 26;
-        float btnY = Bounds().Height() - btnH - 14;
+        float btnY = Bounds().Height() - btnH - 20;//14
 
         BButton* cancelBtn = new BButton(
             BRect(x, btnY, x + btnW, btnY + btnH),
