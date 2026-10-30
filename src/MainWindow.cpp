@@ -1,5 +1,6 @@
 #include "MainWindow.h"
 #include "TaskItem.h"
+#include "DatePickerWindow.h"
 
 #include <Application.h>
 #include <Alert.h>
@@ -19,13 +20,93 @@
 #include <Box.h>
 #include <Font.h>
 #include <Screen.h>
+#include <Messenger.h>
+#include <DateTime.h>
 
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <algorithm>
 #include <cctype>
 
 static const float kDetailPanelHeight = 175.0f;
+
+// ---- Due date helpers (RFC 3339 <-> BDate) ----
+
+static bool ParseRfc3339Date(const std::string& s, int32& year, int32& month, int32& day)
+{
+    if (s.size() < 10)
+        return false;
+    year  = atoi(s.substr(0, 4).c_str());
+    month = atoi(s.substr(5, 2).c_str());
+    day   = atoi(s.substr(8, 2).c_str());
+    return BPrivate::BDate::IsValid(year, month, day);
+}
+
+static std::string FormatRfc3339Date(int32 year, int32 month, int32 day)
+{
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%04d-%02d-%02dT00:00:00.000Z", (int)year, (int)month, (int)day);
+    return buf;
+}
+
+// ---- DueDateLabel: a fixed-width, clickable label showing the due date ----
+
+class DueDateLabel : public BView {
+public:
+    DueDateLabel(BRect frame, const char* name)
+        : BView(frame, name, B_FOLLOW_TOP, B_WILL_DRAW),
+          fText("Due: (none)"), fHovering(false)
+    {
+        SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+    }
+
+    void SetText(const std::string& text)
+    {
+        fText = text;
+        Invalidate();
+    }
+
+    void Draw(BRect updateRect) override
+    {
+        BRect bounds = Bounds();
+
+        rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
+        SetHighColor(fHovering ? tint_color(base, B_DARKEN_1_TINT) : base);
+        FillRect(bounds);
+
+        rgb_color border = ui_color(B_CONTROL_BORDER_COLOR);
+        SetHighColor(border);
+        StrokeRect(bounds);
+
+        SetHighColor(ui_color(B_CONTROL_TEXT_COLOR));
+        SetDrawingMode(B_OP_OVER);
+        font_height fh;
+        GetFontHeight(&fh);
+        DrawString(fText.c_str(),
+                   BPoint(6.0f, (bounds.Height() + fh.ascent - fh.descent) / 2.0f));
+        SetDrawingMode(B_OP_COPY);
+    }
+
+    void MouseDown(BPoint where) override
+    {
+        BMessage msg(MSG_DUE_LABEL_CLICKED);
+        Window()->PostMessage(&msg);
+    }
+
+    void MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage) override
+    {
+        bool wasHovering = fHovering;
+        fHovering = (code == B_ENTERED_VIEW || code == B_INSIDE_VIEW);
+        if (fHovering != wasHovering)
+            Invalidate();
+        BView::MouseMoved(where, code, dragMessage);
+    }
+
+private:
+    std::string fText;
+    bool        fHovering;
+};
 
 // ---- Thread data structs ----
 
@@ -73,7 +154,7 @@ MainWindow::MainWindow(GoogleAuth* auth, GoogleTasksAPI* api)
       fNewTaskBtn(nullptr), fDeleteBtn(nullptr),
       fCompleteBtn(nullptr), fStarBtn(nullptr), fRefreshBtn(nullptr),
       fSearchField(nullptr), fTitleField(nullptr),
-      fNotesView(nullptr), fDueField(nullptr),
+      fNotesView(nullptr), fDueLabel(nullptr), fDueClearBtn(nullptr),
       fSaveBtn(nullptr), fCancelBtn(nullptr),
       fStatusBar(nullptr), fDetailPanel(nullptr),
       fListsScroll(nullptr), fTasksScroll(nullptr)
@@ -151,28 +232,28 @@ void MainWindow::BuildToolbar(BView* parent, float& y)
     float by = margin;
     float bw = 90.0f;
 
-    fNewTaskBtn = new BButton(BRect(bx, by, bx + bw, by + bh), "new_task",
-                              "New Task", new BMessage(MSG_NEW_TASK));
+    fNewTaskBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "new_task",
+                                  "New Task", new BMessage(MSG_NEW_TASK));
     toolbar->AddChild(fNewTaskBtn);
     bx += bw + 4;
 
-    fCompleteBtn = new BButton(BRect(bx, by, bx + bw, by + bh), "complete",
-                               "Complete", new BMessage(MSG_TOGGLE_COMPLETE));
+    fCompleteBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "complete",
+                                   "Complete", new BMessage(MSG_TOGGLE_COMPLETE));
     toolbar->AddChild(fCompleteBtn);
     bx += bw + 4;
 
-    fStarBtn = new BButton(BRect(bx, by, bx + 60, by + bh), "star",
-                           "Star", new BMessage(MSG_TOGGLE_STAR));
+    fStarBtn = new RoundButton(BRect(bx, by, bx + 60, by + bh), "star",
+                               "Star", new BMessage(MSG_TOGGLE_STAR));
     toolbar->AddChild(fStarBtn);
     bx += 64;
 
-    fDeleteBtn = new BButton(BRect(bx, by, bx + bw, by + bh), "delete",
-                             "Delete", new BMessage(MSG_DELETE_TASK));
+    fDeleteBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "delete",
+                                 "Delete", new BMessage(MSG_DELETE_TASK));
     toolbar->AddChild(fDeleteBtn);
     bx += bw + 4;
 
-    fRefreshBtn = new BButton(BRect(bx, by, bx + bw, by + bh), "refresh",
-                              "Refresh", new BMessage(MSG_REFRESH));
+    fRefreshBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "refresh",
+                                  "Refresh", new BMessage(MSG_REFRESH));
     toolbar->AddChild(fRefreshBtn);
     bx += bw + 4;
 
@@ -298,25 +379,32 @@ void MainWindow::BuildDetailPanel(BView* parent)
     notesScroll->ResizeTo(notesW, notesRowH);
     parent->AddChild(notesScroll);
 
-    // Due date — aligned with the top of the notes row, same divider treatment.
+    // Due date — a fixed-width clickable label (opens the date picker) plus
+    // a small round "x" button to clear it. See ShowDatePicker()/UpdateDueLabel().
     float dueX = pw / 2.0f + margin;
-    fDueField = new BTextControl(BRect(dueX, notesRowY, pw - margin, notesRowY + fieldH),
-                                 "due_field", "Due:", "", new BMessage((uint32)0));
-    fDueField->SetDivider(fDueField->StringWidth("Due:") + 8.0f);
-    fDueField->SetResizingMode(B_FOLLOW_RIGHT | B_FOLLOW_TOP);
-    parent->AddChild(fDueField);
+    float dueLabelW = 160.0f;
+    fDueLabel = new DueDateLabel(BRect(dueX, notesRowY, dueX + dueLabelW, notesRowY + fieldH),
+                                 "due_label");
+    fDueLabel->SetResizingMode(B_FOLLOW_RIGHT | B_FOLLOW_TOP);
+    parent->AddChild(fDueLabel);
+
+    float clearX = dueX + dueLabelW + 6.0f;
+    fDueClearBtn = new RoundButton(BRect(clearX, notesRowY, clearX + fieldH, notesRowY + fieldH),
+                                   "due_clear", "x", new BMessage(MSG_DUE_CLEAR));
+    fDueClearBtn->SetCornerRadius(fieldH / 2.0f);
+    fDueClearBtn->SetResizingMode(B_FOLLOW_RIGHT | B_FOLLOW_TOP);
+    parent->AddChild(fDueClearBtn);
 
     y = notesRowY + notesRowH + 14.0f;
 
     // Save / Cancel buttons
     float btnW = 80.0f;
     float btnH = 26.0f;
-    fSaveBtn = new BButton(BRect(margin, y, margin + btnW, y + btnH),
+    fSaveBtn = new RoundButton(BRect(margin, y, margin + btnW, y + btnH),
                            "save_btn", "Save", new BMessage(MSG_SAVE_TASK));
-    fSaveBtn->MakeDefault(true);
     parent->AddChild(fSaveBtn);
 
-    fCancelBtn = new BButton(BRect(margin + btnW + 8, y,
+    fCancelBtn = new RoundButton(BRect(margin + btnW + 8, y,
                                    margin + btnW * 2 + 8, y + btnH),
                              "cancel_btn", "Cancel", new BMessage(MSG_CANCEL_EDIT));
     parent->AddChild(fCancelBtn);
@@ -502,7 +590,8 @@ void MainWindow::ShowTaskDetail(const Task& task)
 
     if (fTitleField) fTitleField->SetText(task.title.c_str());
     if (fNotesView)  fNotesView->SetText(task.notes.c_str());
-    if (fDueField)   fDueField->SetText(task.due.c_str());
+    fDueValue = task.due;
+    UpdateDueLabel();
 
     RevealDetailPanel();
 }
@@ -544,6 +633,38 @@ void MainWindow::ConcealDetailPanel()
         fListsScroll->ResizeBy(0, growBy);
         fTasksScroll->ResizeBy(0, growBy);
     }
+}
+
+void MainWindow::UpdateDueLabel()
+{
+    if (!fDueLabel) return;
+
+    int32 year, month, day;
+    if (!fDueValue.empty() && ParseRfc3339Date(fDueValue, year, month, day)) {
+        BPrivate::BDate date(year, month, day);
+        BString text;
+        text << "Due: " << day << " " << date.ShortMonthName(month) << " " << year;
+        fDueLabel->SetText(text.String());
+    } else {
+        fDueLabel->SetText("Due: (none)");
+    }
+}
+
+void MainWindow::ShowDatePicker()
+{
+    if (!fDueLabel) return;
+
+    int32 year, month, day;
+    BPrivate::BDate initial; // invalid by default
+    if (!fDueValue.empty() && ParseRfc3339Date(fDueValue, year, month, day))
+        initial.SetDate(year, month, day);
+
+    BPoint where = fDueLabel->ConvertToScreen(fDueLabel->Bounds().LeftBottom());
+    where.y += 2.0f;
+
+    DatePickerWindow* picker = new DatePickerWindow(
+        where, BMessenger(this), new BMessage(MSG_DUE_DATE_PICKED), initial);
+    picker->Show();
 }
 
 void MainWindow::UpdateToolbarState()
@@ -693,7 +814,8 @@ void MainWindow::MessageReceived(BMessage* msg)
         fDetailVisible = true;
         if (fTitleField) fTitleField->SetText("");
         if (fNotesView)  fNotesView->SetText("");
-        if (fDueField)   fDueField->SetText("");
+        fDueValue.clear();
+        UpdateDueLabel();
         RevealDetailPanel();
         if (fTitleField) fTitleField->MakeFocus(true);
         break;
@@ -703,7 +825,6 @@ void MainWindow::MessageReceived(BMessage* msg)
         if (fCurrentListId.empty()) break;
         const char* title = fTitleField ? fTitleField->Text() : "";
         const char* notes = fNotesView  ? fNotesView->Text()  : "";
-        const char* due   = fDueField   ? fDueField->Text()   : "";
 
         if (!title || strlen(title) == 0) {
             ShowStatus("Task title cannot be empty.");
@@ -718,7 +839,7 @@ void MainWindow::MessageReceived(BMessage* msg)
             d->listId = fCurrentListId;
             d->title  = title;
             d->notes  = notes ? notes : "";
-            d->due    = due   ? due   : "";
+            d->due    = fDueValue;
             resume_thread(spawn_thread(CreateTaskThread, "create_task",
                                        B_NORMAL_PRIORITY, d));
         } else {
@@ -727,7 +848,7 @@ void MainWindow::MessageReceived(BMessage* msg)
             Task task = fFilteredTasks[fSelectedTaskIndex];
             task.title = title;
             task.notes = notes ? notes : "";
-            task.due   = due   ? due   : "";
+            task.due   = fDueValue;
             ShowStatus("Updating task…");
             UpdateTaskData* d = new UpdateTaskData;
             d->looper = this;
@@ -745,6 +866,27 @@ void MainWindow::MessageReceived(BMessage* msg)
         fTasksView->DeselectAll();
         fSelectedTaskIndex = -1;
         UpdateToolbarState();
+        break;
+    }
+
+    case MSG_DUE_LABEL_CLICKED: {
+        ShowDatePicker();
+        break;
+    }
+
+    case MSG_DUE_DATE_PICKED: {
+        int32 year = 0, month = 0, day = 0;
+        msg->FindInt32("year", &year);
+        msg->FindInt32("month", &month);
+        msg->FindInt32("day", &day);
+        fDueValue = FormatRfc3339Date(year, month, day);
+        UpdateDueLabel();
+        break;
+    }
+
+    case MSG_DUE_CLEAR: {
+        fDueValue.clear();
+        UpdateDueLabel();
         break;
     }
 

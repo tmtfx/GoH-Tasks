@@ -2,7 +2,7 @@ APP_NAME = GoH-Tasks
 SRCS = $(wildcard src/*.cpp)
 OBJS = $(SRCS:src/%.cpp=build/%.o)
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -O2 -I/boot/system/develop/headers -Isrc -Iresources
+CXXFLAGS = -std=c++17 -Wall -O2 -I/boot/system/develop/headers -Isrc -Iresources -MMD -MP
 LDFLAGS = -lbe -lnetwork -lcurl
 
 RDEF = resources/GTasks-icon.rdef
@@ -25,5 +25,7 @@ build:
 
 clean:
 	rm -rf build $(APP_NAME)
+
+-include $(OBJS:.o=.d)
 
 .PHONY: all clean

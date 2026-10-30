@@ -2,6 +2,7 @@
 #include <Window.h>
 #include <ListView.h>
 #include <Button.h>
+#include "RoundButton.h"
 #include <TextControl.h>
 #include <TextView.h>
 #include <StringView.h>
@@ -32,6 +33,11 @@ const uint32 MSG_TASK_CREATED     = 'tCrt';
 const uint32 MSG_TASK_UPDATED     = 'tUpd';
 const uint32 MSG_TASK_DELETED     = 'tDel';
 const uint32 MSG_OPEN_PREFS       = 'pref';
+const uint32 MSG_DUE_LABEL_CLICKED = 'dLCk';
+const uint32 MSG_DUE_DATE_PICKED   = 'dDpk';
+const uint32 MSG_DUE_CLEAR         = 'dClr';
+
+class DueDateLabel;
 
 class MainWindow : public BWindow {
 public:
@@ -55,6 +61,8 @@ private:
     void HideTaskDetail();
     void RevealDetailPanel();
     void ConcealDetailPanel();
+    void ShowDatePicker();
+    void UpdateDueLabel();
     void UpdateToolbarState();
     void ShowError(const std::string& msg);
     void ShowStatus(const std::string& msg);
@@ -71,17 +79,19 @@ private:
 
     BListView*    fTaskListsView;
     BListView*    fTasksView;
-    BButton*      fNewTaskBtn;
-    BButton*      fDeleteBtn;
-    BButton*      fCompleteBtn;
-    BButton*      fStarBtn;
-    BButton*      fRefreshBtn;
+    RoundButton*  fNewTaskBtn;
+    RoundButton*  fDeleteBtn;
+    RoundButton*  fCompleteBtn;
+    RoundButton*  fStarBtn;
+    RoundButton*  fRefreshBtn;
     BTextControl* fSearchField;
     BTextControl* fTitleField;
     BTextView*    fNotesView;
-    BTextControl* fDueField;
-    BButton*      fSaveBtn;
-    BButton*      fCancelBtn;
+    DueDateLabel* fDueLabel;
+    RoundButton*  fDueClearBtn;
+    std::string   fDueValue;    // RFC 3339, empty if not set
+    RoundButton*  fSaveBtn;
+    RoundButton*  fCancelBtn;
     BStringView*  fStatusBar;
     BView*        fDetailPanel;
     BScrollView*  fListsScroll;
