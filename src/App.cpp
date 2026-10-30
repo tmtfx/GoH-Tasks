@@ -200,10 +200,10 @@ public:
         boldFont.SetSize(14);
         name->SetFont(&boldFont);
         bg->AddChild(name);
-        y += 26;
+        y += 30;
 
         BStringView* tagline = new BStringView(
-            BRect(0, y, Bounds().Width(), y + 18), "tagline",
+            BRect(0, y, Bounds().Width(), y + 24), "tagline",
             "A Google Tasks client for Haiku");
         tagline->SetAlignment(B_ALIGN_CENTER);
         bg->AddChild(tagline);
@@ -211,8 +211,8 @@ public:
 
         float btnW = 80, btnH = 26;
         BButton* okBtn = new BButton(
-            BRect((Bounds().Width() - btnW) / 2.0f, Bounds().Height() - btnH - 14,
-                  (Bounds().Width() - btnW) / 2.0f + btnW, Bounds().Height() - 14),
+            BRect((Bounds().Width() - btnW) / 2.0f, Bounds().Height() - btnH - 20,
+                  (Bounds().Width() - btnW) / 2.0f + btnW, Bounds().Height() - 20),
             "ok", "OK", new BMessage(B_QUIT_REQUESTED));
         okBtn->MakeDefault(true);
         bg->AddChild(okBtn);
