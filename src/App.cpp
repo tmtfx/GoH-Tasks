@@ -12,7 +12,7 @@
 #include <Bitmap.h>
 #include <Rect.h>
 #include <Font.h>
-#include <Catalog.h>
+#include "Localization.h"
 
 #include <cstring>
 
@@ -242,6 +242,8 @@ App::App()
     : BApplication("application/x-vnd.GoH-Tasks"),
       fAuth(nullptr), fAPI(nullptr), fMainWindow(nullptr)
 {
+    InitAppCatalog();
+
     fAuth = new GoogleAuth();
     fAPI  = new GoogleTasksAPI(fAuth);
 }

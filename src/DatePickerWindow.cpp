@@ -4,7 +4,7 @@
 #include <StringView.h>
 #include <Screen.h>
 #include <Font.h>
-#include <Catalog.h>
+#include "Localization.h"
 
 #include <cstdio>
 

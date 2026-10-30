@@ -6,7 +6,7 @@
 #include <Path.h>
 #include <Directory.h>
 #include <Entry.h>
-#include <Catalog.h>
+#include "Localization.h"
 
 #include <curl/curl.h>
 

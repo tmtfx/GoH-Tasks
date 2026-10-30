@@ -23,7 +23,7 @@
 #include <Messenger.h>
 #include <DateTime.h>
 #include <Shape.h>
-#include <Catalog.h>
+#include "Localization.h"
 #include <StringFormat.h>
 
 #include <cstdio>

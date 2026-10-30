@@ -11,15 +11,9 @@ RSRC = build/GTasks-icon.rsrc
 
 # Languages this app ships translations for (besides the English source
 # text itself). Each one needs a locales/<lang>.catkeys file.
-LOCALES = it es de fr pt
+LOCALES = it es de fr pt fur
 CATALOGS = $(LOCALES:%=build/catalogs/$(APP_MIME_SIG)/%.catalog)
 CATALOG_INSTALL_DIR = $(HOME)/config/non-packaged/data/locale/catalogs/$(APP_MIME_SIG)
-
-LANGNAME_it = Italian
-LANGNAME_es = Spanish
-LANGNAME_de = German
-LANGNAME_fr = French
-LANGNAME_pt = Portuguese
 
 all: $(APP_NAME) install-catalogs
 
@@ -30,8 +24,14 @@ $(APP_NAME): $(OBJS) $(RSRC)
 build/%.o: src/%.cpp | build
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-$(RSRC): $(RDEF) | build
+# The binary needs an embedded "DefaultCatalog" resource (built from the
+# English template) for BLocaleRoster's automatic per-system-language
+# catalog lookup (what B_TRANSLATE() uses at runtime) to work at all —
+# without it, BCatalog can't resolve a signature/fingerprint for the
+# running image and silently falls back to the untranslated strings.
+$(RSRC): $(RDEF) locales/en.catkeys | build
 	rc -o $@ $<
+	linkcatkeys -o $@ -tr -s $(APP_MIME_SIG) -l en locales/en.catkeys
 
 build:
 	mkdir -p build
@@ -57,7 +57,7 @@ catkeys: $(SRCS:src/%.cpp=build/catkeys/%.pre)
 
 build/catalogs/$(APP_MIME_SIG)/%.catalog: locales/%.catkeys
 	mkdir -p $(dir $@)
-	linkcatkeys -o $@ -s $(APP_MIME_SIG) -l $(LANGNAME_$*) $<
+	linkcatkeys -o $@ -s $(APP_MIME_SIG) -l $* $<
 
 catalogs: $(CATALOGS)
 
