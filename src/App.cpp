@@ -9,9 +9,13 @@
 #include <StringView.h>
 #include <Locker.h>
 #include <Autolock.h>
+#include <Bitmap.h>
+#include <Rect.h>
+#include <Font.h>
 
-#include <cstdio>
 #include <cstring>
+
+#include "GTasks-icon.h"
 
 // ============================================================
 //  Setup Dialog — shown when no credentials are configured
@@ -23,7 +27,7 @@ static const uint32 MSG_SETUP_CANCEL = 'supc';
 class SetupWindow : public BWindow {
 public:
     SetupWindow()
-        : BWindow(BRect(0, 0, 440, 260), "GoH-Tasks Setup",
+        : BWindow(BRect(0, 0, 560, 300), "GoH-Tasks Setup",
                   B_MODAL_WINDOW,
                   B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_ASYNCHRONOUS_CONTROLS),
           fSaved(false), fDone(false)
@@ -32,31 +36,31 @@ public:
         bg->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
         AddChild(bg);
 
-        float x = 12, y = 12, w = Bounds().Width() - 24;
+        float x = 14, y = 14, w = Bounds().Width() - 28;
 
         BStringView* instr1 = new BStringView(
-            BRect(x, y, x + w, y + 18), "i1",
+            BRect(x, y, x + w, y + 20), "i1",
             "GoH-Tasks needs OAuth 2.0 credentials from Google Cloud Console.");
         bg->AddChild(instr1);
-        y += 22;
+        y += 24;
 
         BStringView* instr2 = new BStringView(
-            BRect(x, y, x + w, y + 18), "i2",
-            "Go to: console.cloud.google.com → APIs & Services → Credentials");
+            BRect(x, y, x + w, y + 20), "i2",
+            "Go to: console.cloud.google.com -> APIs & Services -> Credentials");
         bg->AddChild(instr2);
-        y += 22;
+        y += 24;
 
         BStringView* instr3 = new BStringView(
-            BRect(x, y, x + w, y + 18), "i3",
+            BRect(x, y, x + w, y + 20), "i3",
             "Create an OAuth 2.0 Client ID (Desktop application type).");
         bg->AddChild(instr3);
-        y += 22;
+        y += 24;
 
         BStringView* instr4 = new BStringView(
-            BRect(x, y, x + w, y + 18), "i4",
+            BRect(x, y, x + w, y + 20), "i4",
             "Enable the Google Tasks API for your project first.");
         bg->AddChild(instr4);
-        y += 30;
+        y += 34;
 
         fClientIdField = new BTextControl(
             BRect(x, y, x + w, y + 24), "client_id",
@@ -108,13 +112,11 @@ public:
             fResultSecret = secret;
             fSaved        = true;
             fDone         = true;
-            Lock();
             Quit();
             break;
         }
         case MSG_SETUP_CANCEL:
             fDone = true;
-            Lock();
             Quit();
             break;
         default:
@@ -141,6 +143,84 @@ public:
 private:
     BTextControl* fClientIdField;
     BTextControl* fClientSecretField;
+};
+
+// ============================================================
+//  About Window
+// ============================================================
+
+class LogoView : public BView {
+public:
+    LogoView(BRect frame)
+        : BView(frame, "logo", B_FOLLOW_NONE, B_WILL_DRAW)
+    {
+        SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+        fBitmap = new BBitmap(BRect(0, 0, kBitmapWidth - 1, kBitmapHeight - 1),
+                              kBitmapFormat);
+        fBitmap->SetBits(kGTasksIconBits, sizeof(kGTasksIconBits), 0, kBitmapFormat);
+    }
+
+    ~LogoView() override { delete fBitmap; }
+
+    void Draw(BRect updateRect) override {
+        BView::Draw(updateRect);
+        if (fBitmap) {
+            SetDrawingMode(B_OP_ALPHA);
+            SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_COMPOSITE);
+            DrawBitmap(fBitmap, Bounds());
+            SetDrawingMode(B_OP_COPY);
+        }
+    }
+
+private:
+    BBitmap* fBitmap;
+};
+
+class AboutWindow : public BWindow {
+public:
+    AboutWindow()
+        : BWindow(BRect(0, 0, 320, 300), "About GoH-Tasks",
+                  B_MODAL_WINDOW,
+                  B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_ASYNCHRONOUS_CONTROLS)
+    {
+        BView* bg = new BView(Bounds(), "bg", B_FOLLOW_ALL, B_WILL_DRAW);
+        bg->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+        AddChild(bg);
+
+        float logoSize = 96.0f;
+        float x = (Bounds().Width() - logoSize) / 2.0f;
+        LogoView* logo = new LogoView(BRect(x, 16, x + logoSize, 16 + logoSize));
+        bg->AddChild(logo);
+
+        float y = 16 + logoSize + 10;
+        BStringView* name = new BStringView(
+            BRect(0, y, Bounds().Width(), y + 20), "name", "GoH-Tasks");
+        name->SetAlignment(B_ALIGN_CENTER);
+        BFont boldFont(be_bold_font);
+        boldFont.SetSize(14);
+        name->SetFont(&boldFont);
+        bg->AddChild(name);
+        y += 26;
+
+        BStringView* tagline = new BStringView(
+            BRect(0, y, Bounds().Width(), y + 18), "tagline",
+            "A Google Tasks client for Haiku");
+        tagline->SetAlignment(B_ALIGN_CENTER);
+        bg->AddChild(tagline);
+        y += 30;
+
+        float btnW = 80, btnH = 26;
+        BButton* okBtn = new BButton(
+            BRect((Bounds().Width() - btnW) / 2.0f, Bounds().Height() - btnH - 14,
+                  (Bounds().Width() - btnW) / 2.0f + btnW, Bounds().Height() - 14),
+            "ok", "OK", new BMessage(B_QUIT_REQUESTED));
+        okBtn->MakeDefault(true);
+        bg->AddChild(okBtn);
+
+        CenterOnScreen();
+    }
+
+    bool QuitRequested() override { return true; }
 };
 
 // ============================================================
@@ -229,6 +309,12 @@ void App::ShowSetupDialog()
         fAuth->saveConfig(win->fResultId, win->fResultSecret);
     }
     // win destroyed itself via Quit()
+}
+
+void App::AboutRequested()
+{
+    AboutWindow* win = new AboutWindow();
+    win->Show();
 }
 
 void App::MessageReceived(BMessage* msg)

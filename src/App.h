@@ -11,6 +11,7 @@ public:
     ~App() override;
     void ReadyToRun() override;
     void MessageReceived(BMessage* msg) override;
+    void AboutRequested() override;
 
 private:
     void ShowSetupDialog();

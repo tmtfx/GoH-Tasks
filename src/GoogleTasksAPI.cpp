@@ -12,6 +12,7 @@
 #include <sstream>
 #include <map>
 #include <cstring>
+#include <cstdio>
 
 static const std::string kBaseUrl = "https://tasks.googleapis.com/tasks/v1";
 
@@ -143,6 +144,7 @@ std::string GoogleTasksAPI::doRequest(const std::string& method,
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
 
@@ -175,6 +177,11 @@ std::string GoogleTasksAPI::doRequest(const std::string& method,
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
+
+    fprintf(stderr, "[GoH-Tasks] %s %s -> curl=%d http=%ld bytes=%zu\n",
+            method.c_str(), url.c_str(), (int)res, httpCode, response.size());
+    if (!response.empty())
+        fprintf(stderr, "[GoH-Tasks] body: %s\n", response.c_str());
 
     if (res != CURLE_OK) {
         fLastError = std::string("CURL error: ") + curl_easy_strerror(res);

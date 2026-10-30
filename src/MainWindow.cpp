@@ -85,14 +85,16 @@ MainWindow::~MainWindow()
 
 void MainWindow::BuildUI()
 {
-    BView* root = new BView(Bounds(), "root", B_FOLLOW_ALL, B_WILL_DRAW);
+    BuildMenuBar();
+    float menuBottom = KeyMenuBar()->Frame().bottom + 1;
+
+    BRect rootFrame = Bounds();
+    rootFrame.top = menuBottom;
+    BView* root = new BView(rootFrame, "root", B_FOLLOW_ALL, B_WILL_DRAW);
     root->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
     AddChild(root);
 
     float y = 0;
-    BuildMenuBar();
-    y = KeyMenuBar()->Frame().bottom + 1;
-
     BuildToolbar(root, y);
     BuildMainArea(root, y);
 }
@@ -107,6 +109,7 @@ void MainWindow::BuildMenuBar()
     fileMenu->AddItem(new BMenuItem("New Task List",  new BMessage(MSG_NEW_TASKLIST)));
     fileMenu->AddSeparatorItem();
     fileMenu->AddItem(new BMenuItem("Preferences…",  new BMessage(MSG_OPEN_PREFS)));
+    fileMenu->AddItem(new BMenuItem("About GoH-Tasks…", new BMessage(B_ABOUT_REQUESTED)));
     fileMenu->AddSeparatorItem();
     fileMenu->AddItem(new BMenuItem("Quit",           new BMessage(B_QUIT_REQUESTED), 'Q'));
     menuBar->AddItem(fileMenu);
@@ -189,7 +192,7 @@ void MainWindow::BuildMainArea(BView* parent, float y)
     fTaskListsView->SetSelectionMessage(new BMessage(MSG_LIST_SELECTED));
     BScrollView* listsScroll = new BScrollView("lists_scroll", fTaskListsView,
                                                B_FOLLOW_LEFT | B_FOLLOW_TOP_BOTTOM,
-                                               false, true, B_FANCY_BORDER);
+                                               0, false, true, B_FANCY_BORDER);
     listsScroll->MoveTo(0, y);
     listsScroll->ResizeTo(listsW, mainH);
     parent->AddChild(listsScroll);
@@ -203,7 +206,7 @@ void MainWindow::BuildMainArea(BView* parent, float y)
     fTasksView->SetInvocationMessage(new BMessage(MSG_TASK_SELECTED));
     BScrollView* tasksScroll = new BScrollView("tasks_scroll", fTasksView,
                                                B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP_BOTTOM,
-                                               false, true, B_FANCY_BORDER);
+                                               0, false, true, B_FANCY_BORDER);
     tasksScroll->MoveTo(tasksX, y);
     tasksScroll->ResizeTo(tasksW, mainH);
     parent->AddChild(tasksScroll);
@@ -251,7 +254,7 @@ void MainWindow::BuildDetailPanel(BView* parent)
     fNotesView->SetWordWrap(true);
     BScrollView* notesScroll = new BScrollView("notes_scroll", fNotesView,
                                                B_FOLLOW_LEFT | B_FOLLOW_TOP,
-                                               false, true, B_FANCY_BORDER);
+                                               0, false, true, B_FANCY_BORDER);
     notesScroll->MoveTo(margin, y);
     notesScroll->ResizeTo(pw / 2.0f - margin * 2, 44);
     parent->AddChild(notesScroll);
@@ -844,6 +847,11 @@ void MainWindow::MessageReceived(BMessage* msg)
     case MSG_OPEN_PREFS: {
         // Delegate back to app to show setup dialog
         be_app->PostMessage(MSG_OPEN_PREFS);
+        break;
+    }
+
+    case B_ABOUT_REQUESTED: {
+        be_app->PostMessage(B_ABOUT_REQUESTED);
         break;
     }
 

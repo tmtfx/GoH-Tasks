@@ -288,8 +288,8 @@ bool GoogleAuth::authenticate()
         "&access_type=offline"
         "&prompt=consent";
 
-    // Open URL in browser (Haiku: open-url command)
-    std::string cmd = "open-url \"" + authUrl + "\" &";
+    // Open URL in browser (Haiku: "open" launches the default handler)
+    std::string cmd = "open \"" + authUrl + "\" &";
     system(cmd.c_str());
 
     // Wait for the OAuth callback
@@ -400,6 +400,7 @@ bool GoogleAuth::exchangeCode(const std::string& code, const std::string& verifi
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 
     CURLcode res = curl_easy_perform(curl);
@@ -444,6 +445,7 @@ bool GoogleAuth::refreshTokens()
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curlWriteCb);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 
     CURLcode res = curl_easy_perform(curl);
