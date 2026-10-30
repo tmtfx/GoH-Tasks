@@ -160,10 +160,10 @@ std::string GoogleTasksAPI::doRequest(const std::string& method,
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
 
-    fprintf(stderr, "[GoH-Tasks] %s %s -> curl=%d http=%ld bytes=%zu\n",
-            method.c_str(), url.c_str(), (int)res, httpCode, response.size());
-    if (!response.empty())
-        fprintf(stderr, "[GoH-Tasks] body: %s\n", response.c_str());
+    //fprintf(stderr, "[GoH-Tasks] %s %s -> curl=%d http=%ld bytes=%zu\n",
+    //        method.c_str(), url.c_str(), (int)res, httpCode, response.size());
+    //if (!response.empty())
+    //    fprintf(stderr, "[GoH-Tasks] body: %s\n", response.c_str());
 
     if (res != CURLE_OK) {
         fLastError = std::string("CURL error: ") + curl_easy_strerror(res);

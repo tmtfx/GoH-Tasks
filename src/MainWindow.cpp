@@ -423,7 +423,7 @@ void MainWindow::BuildMainArea(BView* parent, float y)
     // only steals space from them when actually revealed (see RevealDetailPanel()).
     float mainH    = parent->Bounds().Height() - y - statusH - 2;
     float totalW   = parent->Bounds().Width();
-    float listsW   = 180.0f;
+    float listsW   = 200.0f;
 
     // --- Task lists panel (left) ---
     // Inset for the vertical scrollbar and the fancy border on both axes
@@ -446,7 +446,7 @@ void MainWindow::BuildMainArea(BView* parent, float y)
     // Filter tabs (All/Active/Completed/Starred) above the tasks list only —
     // pill-shaped, rounded on every corner (see FilterTabStrip).
     float tabStripH = 26.0f;
-    std::vector<std::string> filterLabels = { "All", "Active", "Completed", "Starred" };
+    std::vector<std::string> filterLabels = { "Active", "Completed", "Starred", "All" };
     FilterTabStrip* filterTabs = new FilterTabStrip(
         BRect(tasksX, y, tasksX + tasksW, y + tabStripH), "task_filter_tabs", filterLabels);
     parent->AddChild(filterTabs);
@@ -730,9 +730,9 @@ void MainWindow::ApplySearch()
 
         bool matchesFilter = true;
         switch (fTaskFilter) {
-        case 1: matchesFilter = !t.isCompleted(); break;  // Active
-        case 2: matchesFilter = t.isCompleted();  break;  // Completed
-        case 3: matchesFilter = t.starred;        break;  // Starred
+        case 0: matchesFilter = !t.isCompleted(); break;  // Active
+        case 1: matchesFilter = t.isCompleted();  break;  // Completed
+        case 2: matchesFilter = t.starred;        break;  // Starred
         default: matchesFilter = true;            break;  // All
         }
 
