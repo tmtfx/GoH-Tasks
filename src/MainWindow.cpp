@@ -30,7 +30,7 @@
 #include <algorithm>
 #include <cctype>
 
-static const float kDetailPanelHeight = 175.0f;
+static const float kDetailPanelHeight = 180.0f;
 
 // ---- Due date helpers (RFC 3339 <-> BDate) ----
 
@@ -502,7 +502,7 @@ void MainWindow::BuildDetailPanel(BView* parent)
     fTitleField->SetDivider(fTitleField->StringWidth("Title:") + 8.0f);
     fTitleField->SetResizingMode(B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP);
     parent->AddChild(fTitleField);
-    y += fieldH + 12.0f;
+    y += fieldH + 16.0f;
 
     // Notes — own label (BTextView has none built in) + a properly sized box.
     float notesRowY = y;
@@ -510,7 +510,7 @@ void MainWindow::BuildDetailPanel(BView* parent)
 
     float notesLabelW = be_plain_font->StringWidth("Notes:") + 4.0f;
     BStringView* notesLabel = new BStringView(
-        BRect(margin, notesRowY + 4, margin + notesLabelW, notesRowY + 20),
+        BRect(margin, notesRowY, margin + notesLabelW, notesRowY + 24),
         "notes_label", "Notes:");
     notesLabel->SetResizingMode(B_FOLLOW_LEFT | B_FOLLOW_TOP);
     parent->AddChild(notesLabel);
