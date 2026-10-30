@@ -1,0 +1,87 @@
+1	Italian	application/x-vnd.GoH-Tasks	1368446275
+Save & Continue	SetupWindow		Salva e continua
+Delete Task	MainWindow		Elimina attività
+Not authenticated	GoogleTasksAPI		Non autenticato
+Marking incomplete…	MainWindow		Annullamento completamento…
+Failed to parse create task response	GoogleTasksAPI		Impossibile analizzare la risposta di creazione attività
+Notes:	MainWindow		Note:
+No task lists found. Create one first.	MainWindow		Nessun elenco di attività trovato. Creane uno prima.
+Completed	MainWindow		Completate
+No credentials configured. GoH-Tasks cannot run without OAuth credentials.	App		Nessuna credenziale configurata. GoH-Tasks non può funzionare senza credenziali OAuth.
+OK	MainWindow		OK
+Unknown error	MainWindow		Errore sconosciuto
+Toggle Complete	MainWindow		Alterna completamento
+Due: 	MainWindow		Scadenza: 
+New Task List	MainWindow		Nuovo elenco attività
+OK	App		OK
+Go to: console.cloud.google.com -> APIs & Services -> Credentials	SetupWindow		Vai su: console.cloud.google.com -> APIs & Services -> Credentials
+Quit	MainWindow		Esci
+Star	MainWindow		Preferita
+Th	DatePickerWindow		Gi
+Ready	MainWindow		Pronto
+Starred	MainWindow		Preferite
+Missing Fields	SetupWindow		Campi mancanti
+Cancel	SetupWindow		Annulla
+Preferences…	MainWindow		Preferenze…
+Title:	MainWindow		Titolo:
+Delete List	MainWindow		Elimina elenco
+Setup Required	App		Configurazione richiesta
+Loading task lists…	MainWindow		Caricamento elenchi attività…
+Failed to parse task lists response	GoogleTasksAPI		Impossibile analizzare la risposta degli elenchi attività
+Cancel	MainWindow		Annulla
+Save	MainWindow		Salva
+Error: 	MainWindow		Errore: 
+File	MainWindow		File
+New Task	MainWindow		Nuova attività
+Task title cannot be empty.	MainWindow		Il titolo dell'attività non può essere vuoto.
+Tu	DatePickerWindow		Ma
+Error	MainWindow		Errore
+Creating task…	MainWindow		Creazione attività…
+No authorization code received.	OAuth callback page		Nessun codice di autorizzazione ricevuto.
+Enter a name for the new task list:	MainWindow		Inserisci un nome per il nuovo elenco attività:
+Sa	DatePickerWindow		Sa
+Active	MainWindow		Attive
+Enable the Google Tasks API for your project first.	SetupWindow		Abilita prima l'API Google Tasks per il tuo progetto.
+Authentication Successful	OAuth callback page		Autenticazione riuscita
+Please select a task list first.	MainWindow		Seleziona prima un elenco di attività.
+Complete	MainWindow		Completa
+{0, plural, one{# task} other{# tasks}}	MainWindow		{0, plural, one{# attività} other{# attività}}
+Delete	MainWindow		Elimina
+Toggle Star	MainWindow		Alterna preferita
+curl_easy_init failed	GoogleTasksAPI		Inizializzazione di curl non riuscita
+New List	MainWindow		Nuovo elenco
+Client ID:	SetupWindow		ID client:
+Fr	DatePickerWindow		Ve
+Due: (none)	MainWindow		Scadenza: (nessuna)
+GoH-Tasks	System name		GoH-Tasks
+Authentication Failed	OAuth callback page		Autenticazione non riuscita
+Failed to parse tasks response	GoogleTasksAPI		Impossibile analizzare la risposta delle attività
+Delete task \"%title%\"?	MainWindow		Eliminare l'attività \"%title%\"?
+About GoH-Tasks	AboutWindow		Informazioni su GoH-Tasks
+About GoH-Tasks…	MainWindow		Informazioni su GoH-Tasks…
+{0, plural, one{# completed} other{# completed}}	MainWindow		{0, plural, one{# completata} other{# completate}}
+OK	AboutWindow		OK
+Create an OAuth 2.0 Client ID (Desktop application type).	SetupWindow		Crea un ID client OAuth 2.0 (tipo applicazione desktop).
+GoH-Tasks needs OAuth 2.0 credentials from Google Cloud Console.	SetupWindow		GoH-Tasks richiede credenziali OAuth 2.0 da Google Cloud Console.
+A Google Tasks client for Haiku	AboutWindow		Un client di Google Tasks per Haiku
+GoH-Tasks Setup	SetupWindow		Configurazione di GoH-Tasks
+CURL error: 	GoogleTasksAPI		Errore CURL: 
+Failed to parse create list response	GoogleTasksAPI		Impossibile analizzare la risposta di creazione elenco
+Refresh	MainWindow		Aggiorna
+Search:	MainWindow		Cerca:
+Tasks	MainWindow		Attività
+Mo	DatePickerWindow		Lu
+Please enter both Client ID and Client Secret.	SetupWindow		Inserisci sia l'ID client che il Client Secret.
+Deleting task…	MainWindow		Eliminazione attività…
+Create	MainWindow		Crea
+All	MainWindow		Tutte
+Marking complete…	MainWindow		Completamento attività…
+Updating task…	MainWindow		Aggiornamento attività…
+We	DatePickerWindow		Me
+Delete list \"%title%\" and all its tasks?	MainWindow		Eliminare l'elenco \"%title%\" e tutte le sue attività?
+Loading tasks…	MainWindow		Caricamento attività…
+OK	SetupWindow		OK
+You can close this window and return to GoH-Tasks.	OAuth callback page		Puoi chiudere questa finestra e tornare a GoH-Tasks.
+Su	DatePickerWindow		Do
+Authentication failed. Please check credentials.	App		Autenticazione non riuscita. Controlla le credenziali.
+Client Secret:	SetupWindow		Client Secret:

@@ -12,6 +12,7 @@
 #include <Bitmap.h>
 #include <Rect.h>
 #include <Font.h>
+#include <Catalog.h>
 
 #include <cstring>
 
@@ -21,13 +22,16 @@
 //  Setup Dialog — shown when no credentials are configured
 // ============================================================
 
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "SetupWindow"
+
 static const uint32 MSG_SETUP_SAVE   = 'sups';
 static const uint32 MSG_SETUP_CANCEL = 'supc';
 
 class SetupWindow : public BWindow {
 public:
     SetupWindow()
-        : BWindow(BRect(0, 0, 560, 300), "GoH-Tasks Setup",
+        : BWindow(BRect(0, 0, 560, 300), B_TRANSLATE("GoH-Tasks Setup"),
                   B_MODAL_WINDOW,
                   B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_ASYNCHRONOUS_CONTROLS),
           fSaved(false), fDone(false)
@@ -40,38 +44,38 @@ public:
 
         BStringView* instr1 = new BStringView(
             BRect(x, y, x + w, y + 20), "i1",
-            "GoH-Tasks needs OAuth 2.0 credentials from Google Cloud Console.");
+            B_TRANSLATE("GoH-Tasks needs OAuth 2.0 credentials from Google Cloud Console."));
         bg->AddChild(instr1);
         y += 24;
 
         BStringView* instr2 = new BStringView(
             BRect(x, y, x + w, y + 20), "i2",
-            "Go to: console.cloud.google.com -> APIs & Services -> Credentials");
+            B_TRANSLATE("Go to: console.cloud.google.com -> APIs & Services -> Credentials"));
         bg->AddChild(instr2);
         y += 24;
 
         BStringView* instr3 = new BStringView(
             BRect(x, y, x + w, y + 20), "i3",
-            "Create an OAuth 2.0 Client ID (Desktop application type).");
+            B_TRANSLATE("Create an OAuth 2.0 Client ID (Desktop application type)."));
         bg->AddChild(instr3);
         y += 24;
 
         BStringView* instr4 = new BStringView(
             BRect(x, y, x + w, y + 20), "i4",
-            "Enable the Google Tasks API for your project first.");
+            B_TRANSLATE("Enable the Google Tasks API for your project first."));
         bg->AddChild(instr4);
         y += 34;
 
         fClientIdField = new BTextControl(
             BRect(x, y, x + w, y + 24), "client_id",
-            "Client ID:", "", nullptr);
+            B_TRANSLATE("Client ID:"), "", nullptr);
         fClientIdField->SetDivider(90);
         bg->AddChild(fClientIdField);
         y += 30;
 
         fClientSecretField = new BTextControl(
             BRect(x, y, x + w, y + 24), "client_secret",
-            "Client Secret:", "", nullptr);
+            B_TRANSLATE("Client Secret:"), "", nullptr);
         fClientSecretField->SetDivider(90);
         bg->AddChild(fClientSecretField);
         y += 36;
@@ -82,13 +86,13 @@ public:
 
         BButton* cancelBtn = new BButton(
             BRect(x, btnY, x + btnW, btnY + btnH),
-            "cancel", "Cancel", new BMessage(MSG_SETUP_CANCEL));
+            "cancel", B_TRANSLATE("Cancel"), new BMessage(MSG_SETUP_CANCEL));
         bg->AddChild(cancelBtn);
 
         BButton* saveBtn = new BButton(
             BRect(Bounds().Width() - x - btnW, btnY,
                   Bounds().Width() - x, btnY + btnH),
-            "save", "Save & Continue", new BMessage(MSG_SETUP_SAVE));
+            "save", B_TRANSLATE("Save & Continue"), new BMessage(MSG_SETUP_SAVE));
         saveBtn->MakeDefault(true);
         bg->AddChild(saveBtn);
 
@@ -101,9 +105,9 @@ public:
             const char* id     = fClientIdField->Text();
             const char* secret = fClientSecretField->Text();
             if (!id || strlen(id) == 0 || !secret || strlen(secret) == 0) {
-                BAlert* alert = new BAlert("Missing Fields",
-                                           "Please enter both Client ID and Client Secret.",
-                                           "OK", nullptr, nullptr,
+                BAlert* alert = new BAlert(B_TRANSLATE("Missing Fields"),
+                                           B_TRANSLATE("Please enter both Client ID and Client Secret."),
+                                           B_TRANSLATE("OK"), nullptr, nullptr,
                                            B_WIDTH_AS_USUAL, B_WARNING_ALERT);
                 alert->Go();
                 break;
@@ -149,6 +153,9 @@ private:
 //  About Window
 // ============================================================
 
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "AboutWindow"
+
 class LogoView : public BView {
 public:
     LogoView(BRect frame)
@@ -179,7 +186,7 @@ private:
 class AboutWindow : public BWindow {
 public:
     AboutWindow()
-        : BWindow(BRect(0, 0, 320, 300), "About GoH-Tasks",
+        : BWindow(BRect(0, 0, 320, 300), B_TRANSLATE("About GoH-Tasks"),
                   B_MODAL_WINDOW,
                   B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_ASYNCHRONOUS_CONTROLS)
     {
@@ -194,7 +201,8 @@ public:
 
         float y = 16 + logoSize + 10;
         BStringView* name = new BStringView(
-            BRect(0, y, Bounds().Width(), y + 20), "name", "GoH-Tasks");
+            BRect(0, y, Bounds().Width(), y + 20), "name",
+            B_TRANSLATE_SYSTEM_NAME("GoH-Tasks"));
         name->SetAlignment(B_ALIGN_CENTER);
         BFont boldFont(be_bold_font);
         boldFont.SetSize(14);
@@ -204,7 +212,7 @@ public:
 
         BStringView* tagline = new BStringView(
             BRect(0, y, Bounds().Width(), y + 24), "tagline",
-            "A Google Tasks client for Haiku");
+            B_TRANSLATE("A Google Tasks client for Haiku"));
         tagline->SetAlignment(B_ALIGN_CENTER);
         bg->AddChild(tagline);
         y += 30;
@@ -213,7 +221,7 @@ public:
         BButton* okBtn = new BButton(
             BRect((Bounds().Width() - btnW) / 2.0f, Bounds().Height() - btnH - 20,
                   (Bounds().Width() - btnW) / 2.0f + btnW, Bounds().Height() - 20),
-            "ok", "OK", new BMessage(B_QUIT_REQUESTED));
+            "ok", B_TRANSLATE("OK"), new BMessage(B_QUIT_REQUESTED));
         okBtn->MakeDefault(true);
         bg->AddChild(okBtn);
 
@@ -226,6 +234,9 @@ public:
 // ============================================================
 //  App
 // ============================================================
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "App"
 
 App::App()
     : BApplication("application/x-vnd.GoH-Tasks"),
@@ -253,10 +264,10 @@ void App::ReadyToRun()
 
     // 3. Still no credentials → quit
     if (!fAuth->hasCredentials()) {
-        BAlert* alert = new BAlert("Setup Required",
-                                   "No credentials configured. "
-                                   "GoH-Tasks cannot run without OAuth credentials.",
-                                   "OK", nullptr, nullptr,
+        BAlert* alert = new BAlert(B_TRANSLATE("Setup Required"),
+                                   B_TRANSLATE("No credentials configured. "
+                                   "GoH-Tasks cannot run without OAuth credentials."),
+                                   B_TRANSLATE("OK"), nullptr, nullptr,
                                    B_WIDTH_AS_USUAL, B_WARNING_ALERT);
         alert->Go();
         PostMessage(B_QUIT_REQUESTED);
@@ -287,7 +298,7 @@ void App::ReadyToRun()
                 ad->looper->PostMessage(&m);
             } else {
                 BMessage m(MSG_ERROR);
-                m.AddString("error", "Authentication failed. Please check credentials.");
+                m.AddString("error", B_TRANSLATE("Authentication failed. Please check credentials."));
                 ad->looper->PostMessage(&m);
             }
             delete ad;

@@ -6,6 +6,7 @@
 #include <Path.h>
 #include <Directory.h>
 #include <Entry.h>
+#include <Catalog.h>
 
 #include <curl/curl.h>
 
@@ -18,6 +19,9 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "OAuth callback page"
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
@@ -347,30 +351,30 @@ std::string GoogleAuth::waitForCode(int port)
         }
 
         // Send success HTML response
-        const char* successHtml =
-            "HTTP/1.1 200 OK\r\n"
+        std::string successHtml =
+            std::string("HTTP/1.1 200 OK\r\n"
             "Content-Type: text/html; charset=utf-8\r\n"
             "Connection: close\r\n"
             "\r\n"
             "<!DOCTYPE html><html><head><title>GoH-Tasks</title></head>"
             "<body style='font-family:sans-serif;text-align:center;padding:60px'>"
-            "<h1>&#10003; Authentication Successful</h1>"
-            "<p>You can close this window and return to GoH-Tasks.</p>"
+            "<h1>&#10003; ") + B_TRANSLATE("Authentication Successful") + "</h1>"
+            "<p>" + B_TRANSLATE("You can close this window and return to GoH-Tasks.") + "</p>"
             "</body></html>\r\n";
 
         if (code.empty()) {
-            const char* errorHtml =
-                "HTTP/1.1 400 Bad Request\r\n"
+            std::string errorHtml =
+                std::string("HTTP/1.1 400 Bad Request\r\n"
                 "Content-Type: text/html; charset=utf-8\r\n"
                 "Connection: close\r\n"
                 "\r\n"
                 "<!DOCTYPE html><html><body style='font-family:sans-serif;text-align:center;padding:60px'>"
-                "<h1>&#10007; Authentication Failed</h1>"
-                "<p>No authorization code received.</p>"
+                "<h1>&#10007; ") + B_TRANSLATE("Authentication Failed") + "</h1>"
+                "<p>" + B_TRANSLATE("No authorization code received.") + "</p>"
                 "</body></html>\r\n";
-            send(clientFd, errorHtml, strlen(errorHtml), 0);
+            send(clientFd, errorHtml.c_str(), errorHtml.size(), 0);
         } else {
-            send(clientFd, successHtml, strlen(successHtml), 0);
+            send(clientFd, successHtml.c_str(), successHtml.size(), 0);
         }
     }
     close(clientFd);

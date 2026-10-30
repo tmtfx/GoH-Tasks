@@ -5,6 +5,7 @@
 #include <FindDirectory.h>
 #include <Path.h>
 #include <Directory.h>
+#include <Catalog.h>
 
 #include <curl/curl.h>
 
@@ -14,6 +15,9 @@
 #include <cstring>
 #include <cstdio>
 #include <Autolock.h>
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "GoogleTasksAPI"
 
 static const std::string kBaseUrl = "https://tasks.googleapis.com/tasks/v1";
 
@@ -105,13 +109,13 @@ std::string GoogleTasksAPI::doRequest(const std::string& method,
 {
     std::string token = fAuth->getAccessToken();
     if (token.empty()) {
-        fLastError = "Not authenticated";
+        fLastError = B_TRANSLATE("Not authenticated");
         return "";
     }
 
     CURL* curl = curl_easy_init();
     if (!curl) {
-        fLastError = "curl_easy_init failed";
+        fLastError = B_TRANSLATE("curl_easy_init failed");
         return "";
     }
 
@@ -166,7 +170,7 @@ std::string GoogleTasksAPI::doRequest(const std::string& method,
     //    fprintf(stderr, "[GoH-Tasks] body: %s\n", response.c_str());
 
     if (res != CURLE_OK) {
-        fLastError = std::string("CURL error: ") + curl_easy_strerror(res);
+        fLastError = std::string(B_TRANSLATE("CURL error: ")) + curl_easy_strerror(res);
         return "";
     }
     if (httpCode >= 400) {
@@ -215,7 +219,7 @@ bool GoogleTasksAPI::getTaskLists(std::vector<TaskList>& lists)
         }
         return true;
     } catch (...) {
-        fLastError = "Failed to parse task lists response";
+        fLastError = B_TRANSLATE("Failed to parse task lists response");
         return false;
     }
 }
@@ -250,7 +254,7 @@ bool GoogleTasksAPI::getTasks(const std::string& listId, std::vector<Task>& task
         }
         return true;
     } catch (...) {
-        fLastError = "Failed to parse tasks response";
+        fLastError = B_TRANSLATE("Failed to parse tasks response");
         return false;
     }
 }
@@ -284,7 +288,7 @@ bool GoogleTasksAPI::createTask(const std::string& listId, const std::string& ti
         if (created.status.empty()) created.status = "needsAction";
         return !created.id.empty();
     } catch (...) {
-        fLastError = "Failed to parse create task response";
+        fLastError = B_TRANSLATE("Failed to parse create task response");
         return false;
     }
 }
@@ -348,7 +352,7 @@ bool GoogleTasksAPI::createTaskList(const std::string& title, TaskList& created)
         created.updated = j["updated"].str();
         return !created.id.empty();
     } catch (...) {
-        fLastError = "Failed to parse create list response";
+        fLastError = B_TRANSLATE("Failed to parse create list response");
         return false;
     }
 }

@@ -1,0 +1,87 @@
+1	English	application/x-vnd.GoH-Tasks	1368446275
+Save & Continue	SetupWindow		Save & Continue
+Delete Task	MainWindow		Delete Task
+Not authenticated	GoogleTasksAPI		Not authenticated
+Marking incomplete…	MainWindow		Marking incomplete…
+Failed to parse create task response	GoogleTasksAPI		Failed to parse create task response
+Notes:	MainWindow		Notes:
+No task lists found. Create one first.	MainWindow		No task lists found. Create one first.
+Completed	MainWindow		Completed
+No credentials configured. GoH-Tasks cannot run without OAuth credentials.	App		No credentials configured. GoH-Tasks cannot run without OAuth credentials.
+OK	MainWindow		OK
+Unknown error	MainWindow		Unknown error
+Toggle Complete	MainWindow		Toggle Complete
+Due: 	MainWindow		Due: 
+New Task List	MainWindow		New Task List
+OK	App		OK
+Go to: console.cloud.google.com -> APIs & Services -> Credentials	SetupWindow		Go to: console.cloud.google.com -> APIs & Services -> Credentials
+Quit	MainWindow		Quit
+Star	MainWindow		Star
+Th	DatePickerWindow		Th
+Ready	MainWindow		Ready
+Starred	MainWindow		Starred
+Missing Fields	SetupWindow		Missing Fields
+Cancel	SetupWindow		Cancel
+Preferences…	MainWindow		Preferences…
+Title:	MainWindow		Title:
+Delete List	MainWindow		Delete List
+Setup Required	App		Setup Required
+Loading task lists…	MainWindow		Loading task lists…
+Failed to parse task lists response	GoogleTasksAPI		Failed to parse task lists response
+Cancel	MainWindow		Cancel
+Save	MainWindow		Save
+Error: 	MainWindow		Error: 
+File	MainWindow		File
+New Task	MainWindow		New Task
+Task title cannot be empty.	MainWindow		Task title cannot be empty.
+Tu	DatePickerWindow		Tu
+Error	MainWindow		Error
+Creating task…	MainWindow		Creating task…
+No authorization code received.	OAuth callback page		No authorization code received.
+Enter a name for the new task list:	MainWindow		Enter a name for the new task list:
+Sa	DatePickerWindow		Sa
+Active	MainWindow		Active
+Enable the Google Tasks API for your project first.	SetupWindow		Enable the Google Tasks API for your project first.
+Authentication Successful	OAuth callback page		Authentication Successful
+Please select a task list first.	MainWindow		Please select a task list first.
+Complete	MainWindow		Complete
+{0, plural, one{# task} other{# tasks}}	MainWindow		{0, plural, one{# task} other{# tasks}}
+Delete	MainWindow		Delete
+Toggle Star	MainWindow		Toggle Star
+curl_easy_init failed	GoogleTasksAPI		curl_easy_init failed
+New List	MainWindow		New List
+Client ID:	SetupWindow		Client ID:
+Fr	DatePickerWindow		Fr
+Due: (none)	MainWindow		Due: (none)
+GoH-Tasks	System name		GoH-Tasks
+Authentication Failed	OAuth callback page		Authentication Failed
+Failed to parse tasks response	GoogleTasksAPI		Failed to parse tasks response
+Delete task \"%title%\"?	MainWindow		Delete task \"%title%\"?
+About GoH-Tasks	AboutWindow		About GoH-Tasks
+About GoH-Tasks…	MainWindow		About GoH-Tasks…
+{0, plural, one{# completed} other{# completed}}	MainWindow		{0, plural, one{# completed} other{# completed}}
+OK	AboutWindow		OK
+Create an OAuth 2.0 Client ID (Desktop application type).	SetupWindow		Create an OAuth 2.0 Client ID (Desktop application type).
+GoH-Tasks needs OAuth 2.0 credentials from Google Cloud Console.	SetupWindow		GoH-Tasks needs OAuth 2.0 credentials from Google Cloud Console.
+A Google Tasks client for Haiku	AboutWindow		A Google Tasks client for Haiku
+GoH-Tasks Setup	SetupWindow		GoH-Tasks Setup
+CURL error: 	GoogleTasksAPI		CURL error: 
+Failed to parse create list response	GoogleTasksAPI		Failed to parse create list response
+Refresh	MainWindow		Refresh
+Search:	MainWindow		Search:
+Tasks	MainWindow		Tasks
+Mo	DatePickerWindow		Mo
+Please enter both Client ID and Client Secret.	SetupWindow		Please enter both Client ID and Client Secret.
+Deleting task…	MainWindow		Deleting task…
+Create	MainWindow		Create
+All	MainWindow		All
+Marking complete…	MainWindow		Marking complete…
+Updating task…	MainWindow		Updating task…
+We	DatePickerWindow		We
+Delete list \"%title%\" and all its tasks?	MainWindow		Delete list \"%title%\" and all its tasks?
+Loading tasks…	MainWindow		Loading tasks…
+OK	SetupWindow		OK
+You can close this window and return to GoH-Tasks.	OAuth callback page		You can close this window and return to GoH-Tasks.
+Su	DatePickerWindow		Su
+Authentication failed. Please check credentials.	App		Authentication failed. Please check credentials.
+Client Secret:	SetupWindow		Client Secret:

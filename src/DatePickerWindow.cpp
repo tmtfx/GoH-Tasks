@@ -4,8 +4,12 @@
 #include <StringView.h>
 #include <Screen.h>
 #include <Font.h>
+#include <Catalog.h>
 
 #include <cstdio>
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "DatePickerWindow"
 
 static const float kCellW      = 28.0f;
 static const float kHeaderH    = 20.0f;
@@ -36,7 +40,10 @@ public:
         SetHighColor(ui_color(B_LIST_BACKGROUND_COLOR));
         FillRect(BRect(bounds.left, bounds.top, bounds.right, kHeaderH - 1));
         SetHighColor(tint_color(ui_color(B_LIST_BACKGROUND_COLOR), B_DARKEN_1_TINT));
-        static const char* kDayNames[7] = { "Su", "Mo", "Tu", "We", "Th", "Fr", "Sa" };
+        static const char* kDayNames[7] = {
+            B_TRANSLATE("Su"), B_TRANSLATE("Mo"), B_TRANSLATE("Tu"), B_TRANSLATE("We"),
+            B_TRANSLATE("Th"), B_TRANSLATE("Fr"), B_TRANSLATE("Sa")
+        };
         SetDrawingMode(B_OP_OVER);
         font_height fh;
         GetFontHeight(&fh);

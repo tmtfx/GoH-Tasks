@@ -23,12 +23,17 @@
 #include <Messenger.h>
 #include <DateTime.h>
 #include <Shape.h>
+#include <Catalog.h>
+#include <StringFormat.h>
 
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <algorithm>
 #include <cctype>
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "MainWindow"
 
 static const float kDetailPanelHeight = 180.0f;
 
@@ -57,7 +62,7 @@ class DueDateLabel : public BView {
 public:
     DueDateLabel(BRect frame, const char* name)
         : BView(frame, name, B_FOLLOW_TOP, B_WILL_DRAW),
-          fText("Due: (none)"), fHovering(false)
+          fText(B_TRANSLATE("Due: (none)")), fHovering(false)
     {
         SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
     }
@@ -326,24 +331,24 @@ void MainWindow::BuildMenuBar()
     BMenuBar* menuBar = new BMenuBar(BRect(0, 0, Bounds().Width(), 20), "menu_bar");
 
     // File menu
-    BMenu* fileMenu = new BMenu("File");
-    fileMenu->AddItem(new BMenuItem("New Task",       new BMessage(MSG_NEW_TASK),    'N'));
-    fileMenu->AddItem(new BMenuItem("New Task List",  new BMessage(MSG_NEW_TASKLIST)));
+    BMenu* fileMenu = new BMenu(B_TRANSLATE("File"));
+    fileMenu->AddItem(new BMenuItem(B_TRANSLATE("New Task"),       new BMessage(MSG_NEW_TASK),    'N'));
+    fileMenu->AddItem(new BMenuItem(B_TRANSLATE("New Task List"),  new BMessage(MSG_NEW_TASKLIST)));
     fileMenu->AddSeparatorItem();
-    fileMenu->AddItem(new BMenuItem("Preferences…",  new BMessage(MSG_OPEN_PREFS)));
-    fileMenu->AddItem(new BMenuItem("About GoH-Tasks…", new BMessage(B_ABOUT_REQUESTED)));
+    fileMenu->AddItem(new BMenuItem(B_TRANSLATE("Preferences…"),  new BMessage(MSG_OPEN_PREFS)));
+    fileMenu->AddItem(new BMenuItem(B_TRANSLATE("About GoH-Tasks…"), new BMessage(B_ABOUT_REQUESTED)));
     fileMenu->AddSeparatorItem();
-    fileMenu->AddItem(new BMenuItem("Quit",           new BMessage(B_QUIT_REQUESTED), 'Q'));
+    fileMenu->AddItem(new BMenuItem(B_TRANSLATE("Quit"),           new BMessage(B_QUIT_REQUESTED), 'Q'));
     menuBar->AddItem(fileMenu);
 
     // Tasks menu
-    BMenu* tasksMenu = new BMenu("Tasks");
-    tasksMenu->AddItem(new BMenuItem("Refresh",       new BMessage(MSG_REFRESH),      'R'));
+    BMenu* tasksMenu = new BMenu(B_TRANSLATE("Tasks"));
+    tasksMenu->AddItem(new BMenuItem(B_TRANSLATE("Refresh"),       new BMessage(MSG_REFRESH),      'R'));
     tasksMenu->AddSeparatorItem();
-    tasksMenu->AddItem(new BMenuItem("Toggle Complete", new BMessage(MSG_TOGGLE_COMPLETE)));
-    tasksMenu->AddItem(new BMenuItem("Toggle Star",     new BMessage(MSG_TOGGLE_STAR)));
+    tasksMenu->AddItem(new BMenuItem(B_TRANSLATE("Toggle Complete"), new BMessage(MSG_TOGGLE_COMPLETE)));
+    tasksMenu->AddItem(new BMenuItem(B_TRANSLATE("Toggle Star"),     new BMessage(MSG_TOGGLE_STAR)));
     tasksMenu->AddSeparatorItem();
-    tasksMenu->AddItem(new BMenuItem("Delete Task",   new BMessage(MSG_DELETE_TASK)));
+    tasksMenu->AddItem(new BMenuItem(B_TRANSLATE("Delete Task"),   new BMessage(MSG_DELETE_TASK)));
     menuBar->AddItem(tasksMenu);
 
     AddChild(menuBar);
@@ -371,27 +376,27 @@ void MainWindow::BuildToolbar(BView* parent, float& y)
     float bw = 90.0f;
 
     fNewTaskBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "new_task",
-                                  "New Task", new BMessage(MSG_NEW_TASK));
+                                  B_TRANSLATE("New Task"), new BMessage(MSG_NEW_TASK));
     toolbar->AddChild(fNewTaskBtn);
     bx += bw + 4;
 
     fCompleteBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "complete",
-                                   "Complete", new BMessage(MSG_TOGGLE_COMPLETE));
+                                   B_TRANSLATE("Complete"), new BMessage(MSG_TOGGLE_COMPLETE));
     toolbar->AddChild(fCompleteBtn);
     bx += bw + 4;
 
     fStarBtn = new RoundButton(BRect(bx, by, bx + 60, by + bh), "star",
-                               "Star", new BMessage(MSG_TOGGLE_STAR));
+                               B_TRANSLATE("Star"), new BMessage(MSG_TOGGLE_STAR));
     toolbar->AddChild(fStarBtn);
     bx += 64;
 
     fDeleteBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "delete",
-                                 "Delete", new BMessage(MSG_DELETE_TASK));
+                                 B_TRANSLATE("Delete"), new BMessage(MSG_DELETE_TASK));
     toolbar->AddChild(fDeleteBtn);
     bx += bw + 4;
 
     fRefreshBtn = new RoundButton(BRect(bx, by, bx + bw, by + bh), "refresh",
-                                  "Refresh", new BMessage(MSG_REFRESH));
+                                  B_TRANSLATE("Refresh"), new BMessage(MSG_REFRESH));
     toolbar->AddChild(fRefreshBtn);
     bx += bw + 4;
 
@@ -400,7 +405,7 @@ void MainWindow::BuildToolbar(BView* parent, float& y)
     float searchW = parent->Bounds().Width() - searchX - 10.0f;
     if (searchW < 100) searchW = 100;
     fSearchField = new BTextControl(BRect(searchX, by, searchX + searchW, by + bh),
-                                    "search", "Search:", "",
+                                    "search", B_TRANSLATE("Search:"), "",
                                     new BMessage(MSG_SEARCH_CHANGED));
     fSearchField->SetModificationMessage(new BMessage(MSG_SEARCH_CHANGED));
     toolbar->AddChild(fSearchField);
@@ -446,7 +451,9 @@ void MainWindow::BuildMainArea(BView* parent, float y)
     // Filter tabs (All/Active/Completed/Starred) above the tasks list only —
     // pill-shaped, rounded on every corner (see FilterTabStrip).
     float tabStripH = 26.0f;
-    std::vector<std::string> filterLabels = { "Active", "Completed", "Starred", "All" };
+    std::vector<std::string> filterLabels = {
+        B_TRANSLATE("Active"), B_TRANSLATE("Completed"), B_TRANSLATE("Starred"), B_TRANSLATE("All")
+    };
     FilterTabStrip* filterTabs = new FilterTabStrip(
         BRect(tasksX, y, tasksX + tasksW, y + tabStripH), "task_filter_tabs", filterLabels);
     parent->AddChild(filterTabs);
@@ -481,7 +488,7 @@ void MainWindow::BuildMainArea(BView* parent, float y)
     // --- Status bar ---
     float sbY = parent->Bounds().Height() - statusH;
     fStatusBar = new BStringView(BRect(4, sbY, totalW - 4, sbY + statusH - 2),
-                                 "status", "Ready");
+                                 "status", B_TRANSLATE("Ready"));
     fStatusBar->SetResizingMode(B_FOLLOW_LEFT_RIGHT | B_FOLLOW_BOTTOM);
     parent->AddChild(fStatusBar);
 
@@ -496,10 +503,11 @@ void MainWindow::BuildDetailPanel(BView* parent)
     float fieldH  = 24.0f;
 
     // Title — divider sized to the label itself, not the default ~50% split.
+    const char* titleLabel = B_TRANSLATE("Title:");
     fTitleField = new BTextControl(BRect(margin, y, pw - margin, y + fieldH),
-                                   "title_field", "Title:", "",
+                                   "title_field", titleLabel, "",
                                    new BMessage((uint32)0));
-    fTitleField->SetDivider(fTitleField->StringWidth("Title:") + 8.0f);
+    fTitleField->SetDivider(fTitleField->StringWidth(titleLabel) + 8.0f);
     fTitleField->SetResizingMode(B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP);
     parent->AddChild(fTitleField);
     y += fieldH + 16.0f;
@@ -508,10 +516,11 @@ void MainWindow::BuildDetailPanel(BView* parent)
     float notesRowY = y;
     float notesRowH = 76.0f;
 
-    float notesLabelW = be_plain_font->StringWidth("Notes:") + 4.0f;
+    const char* notesLabelText = B_TRANSLATE("Notes:");
+    float notesLabelW = be_plain_font->StringWidth(notesLabelText) + 4.0f;
     BStringView* notesLabel = new BStringView(
         BRect(margin, notesRowY, margin + notesLabelW, notesRowY + 24),
-        "notes_label", "Notes:");
+        "notes_label", notesLabelText);
     notesLabel->SetResizingMode(B_FOLLOW_LEFT | B_FOLLOW_TOP);
     parent->AddChild(notesLabel);
 
@@ -551,12 +560,12 @@ void MainWindow::BuildDetailPanel(BView* parent)
     float btnW = 80.0f;
     float btnH = 26.0f;
     fSaveBtn = new RoundButton(BRect(margin, y, margin + btnW, y + btnH),
-                           "save_btn", "Save", new BMessage(MSG_SAVE_TASK));
+                           "save_btn", B_TRANSLATE("Save"), new BMessage(MSG_SAVE_TASK));
     parent->AddChild(fSaveBtn);
 
     fCancelBtn = new RoundButton(BRect(margin + btnW + 8, y,
                                    margin + btnW * 2 + 8, y + btnH),
-                             "cancel_btn", "Cancel", new BMessage(MSG_CANCEL_EDIT));
+                             "cancel_btn", B_TRANSLATE("Cancel"), new BMessage(MSG_CANCEL_EDIT));
     parent->AddChild(fCancelBtn);
 }
 
@@ -669,7 +678,7 @@ int32 MainWindow::DeleteTaskThread(void* data)
 
 void MainWindow::LoadTaskLists()
 {
-    ShowStatus("Loading task lists…");
+    ShowStatus(B_TRANSLATE("Loading task lists…"));
     LoadListsData* d = new LoadListsData;
     d->looper = this;
     d->api    = fAPI;
@@ -679,7 +688,7 @@ void MainWindow::LoadTaskLists()
 void MainWindow::LoadTasks(const std::string& listId)
 {
     fCurrentListId = listId;
-    ShowStatus("Loading tasks…");
+    ShowStatus(B_TRANSLATE("Loading tasks…"));
     LoadTasksData* d = new LoadTasksData;
     d->looper = this;
     d->api    = fAPI;
@@ -703,10 +712,16 @@ void MainWindow::RefreshTaskDisplay()
     int completed = 0;
     for (const Task& t : fTasks)
         if (t.isCompleted()) ++completed;
-    char buf[128];
-    snprintf(buf, sizeof(buf), "%d task%s • %d completed",
-             total, total == 1 ? "" : "s", completed);
-    ShowStatus(buf);
+
+    BStringFormat totalFormat(B_TRANSLATE("{0, plural, one{# task} other{# tasks}}"));
+    BStringFormat completedFormat(B_TRANSLATE("{0, plural, one{# completed} other{# completed}}"));
+    BString totalStr, completedStr;
+    totalFormat.Format(totalStr, total);
+    completedFormat.Format(completedStr, completed);
+
+    BString status(totalStr);
+    status << " • " << completedStr;
+    ShowStatus(status.String());
     UpdateToolbarState();
 }
 
@@ -802,10 +817,10 @@ void MainWindow::UpdateDueLabel()
     if (!fDueValue.empty() && ParseRfc3339Date(fDueValue, year, month, day)) {
         BPrivate::BDate date(year, month, day);
         BString text;
-        text << "Due: " << day << " " << date.ShortMonthName(month) << " " << year;
+        text << B_TRANSLATE("Due: ") << day << " " << date.ShortMonthName(month) << " " << year;
         fDueLabel->SetText(text.String());
     } else {
-        fDueLabel->SetText("Due: (none)");
+        fDueLabel->SetText(B_TRANSLATE("Due: (none)"));
     }
 }
 
@@ -838,9 +853,9 @@ void MainWindow::UpdateToolbarState()
 
 void MainWindow::ShowError(const std::string& msg)
 {
-    ShowStatus(std::string("Error: ") + msg);
+    ShowStatus(std::string(B_TRANSLATE("Error: ")) + msg);
     // Also show alert for serious errors
-    BAlert* alert = new BAlert("Error", msg.c_str(), "OK",
+    BAlert* alert = new BAlert(B_TRANSLATE("Error"), msg.c_str(), B_TRANSLATE("OK"),
                                nullptr, nullptr,
                                B_WIDTH_AS_USUAL, B_WARNING_ALERT);
     alert->SetShortcut(0, B_ESCAPE);
@@ -882,7 +897,7 @@ void MainWindow::MessageReceived(BMessage* msg)
             fTaskListsView->Select(0);
             LoadTasks(fTaskLists[0].id);
         } else {
-            ShowStatus("No task lists found. Create one first.");
+            ShowStatus(B_TRANSLATE("No task lists found. Create one first."));
         }
         break;
     }
@@ -938,7 +953,7 @@ void MainWindow::MessageReceived(BMessage* msg)
     case MSG_ERROR: {
         const char* errStr = nullptr;
         msg->FindString("error", &errStr);
-        ShowStatus(std::string("Error: ") + (errStr ? errStr : "Unknown error"));
+        ShowStatus(std::string(B_TRANSLATE("Error: ")) + (errStr ? errStr : B_TRANSLATE("Unknown error")));
         break;
     }
 
@@ -966,7 +981,7 @@ void MainWindow::MessageReceived(BMessage* msg)
 
     case MSG_NEW_TASK: {
         if (fCurrentListId.empty()) {
-            ShowStatus("Please select a task list first.");
+            ShowStatus(B_TRANSLATE("Please select a task list first."));
             break;
         }
         fIsNewTask = true;
@@ -986,12 +1001,12 @@ void MainWindow::MessageReceived(BMessage* msg)
         const char* notes = fNotesView  ? fNotesView->Text()  : "";
 
         if (!title || strlen(title) == 0) {
-            ShowStatus("Task title cannot be empty.");
+            ShowStatus(B_TRANSLATE("Task title cannot be empty."));
             break;
         }
 
         if (fIsNewTask) {
-            ShowStatus("Creating task…");
+            ShowStatus(B_TRANSLATE("Creating task…"));
             CreateTaskData* d = new CreateTaskData;
             d->looper = this;
             d->api    = fAPI;
@@ -1008,7 +1023,7 @@ void MainWindow::MessageReceived(BMessage* msg)
             task.title = title;
             task.notes = notes ? notes : "";
             task.due   = fDueValue;
-            ShowStatus("Updating task…");
+            ShowStatus(B_TRANSLATE("Updating task…"));
             UpdateTaskData* d = new UpdateTaskData;
             d->looper = this;
             d->api    = fAPI;
@@ -1054,14 +1069,16 @@ void MainWindow::MessageReceived(BMessage* msg)
             fSelectedTaskIndex >= (int)fFilteredTasks.size()) break;
         const Task& task = fFilteredTasks[fSelectedTaskIndex];
 
-        BAlert* alert = new BAlert("Delete Task",
-                                   ("Delete task \"" + task.title + "\"?").c_str(),
-                                   "Cancel", "Delete", nullptr,
+        BString deleteMsg(B_TRANSLATE("Delete task \"%title%\"?"));
+        deleteMsg.ReplaceFirst("%title%", task.title.c_str());
+        BAlert* alert = new BAlert(B_TRANSLATE("Delete Task"),
+                                   deleteMsg.String(),
+                                   B_TRANSLATE("Cancel"), B_TRANSLATE("Delete"), nullptr,
                                    B_WIDTH_AS_USUAL, B_WARNING_ALERT);
         alert->SetShortcut(0, B_ESCAPE);
         int32 result = alert->Go();
         if (result == 1) {
-            ShowStatus("Deleting task…");
+            ShowStatus(B_TRANSLATE("Deleting task…"));
             DeleteTaskData* d = new DeleteTaskData;
             d->looper = this;
             d->api    = fAPI;
@@ -1078,7 +1095,7 @@ void MainWindow::MessageReceived(BMessage* msg)
             fSelectedTaskIndex >= (int)fFilteredTasks.size()) break;
         Task& task = fFilteredTasks[fSelectedTaskIndex];
         bool newState = !task.isCompleted();
-        ShowStatus(newState ? "Marking complete…" : "Marking incomplete…");
+        ShowStatus(newState ? B_TRANSLATE("Marking complete…") : B_TRANSLATE("Marking incomplete…"));
 
         // Update optimistically in UI
         task.status = newState ? "completed" : "needsAction";
@@ -1184,8 +1201,8 @@ void MainWindow::MessageReceived(BMessage* msg)
     }
 
     case MSG_NEW_TASKLIST: {
-        BAlert* alert = new BAlert("New Task List", "Enter a name for the new task list:",
-                                   "Cancel", "Create", nullptr,
+        BAlert* alert = new BAlert(B_TRANSLATE("New Task List"), B_TRANSLATE("Enter a name for the new task list:"),
+                                   B_TRANSLATE("Cancel"), B_TRANSLATE("Create"), nullptr,
                                    B_WIDTH_AS_USUAL, B_INFO_ALERT);
         // Unfortunately BAlert doesn't have a text field — use a simple approach:
         // Show a dialog via a window
@@ -1196,7 +1213,7 @@ void MainWindow::MessageReceived(BMessage* msg)
         int32 result = alert->Go();
         if (result == 1) {
             TaskList created;
-            if (fAPI->createTaskList("New List", created)) {
+            if (fAPI->createTaskList(B_TRANSLATE("New List"), created)) {
                 LoadTaskLists();
             } else {
                 ShowError(fAPI->lastError());
@@ -1209,9 +1226,11 @@ void MainWindow::MessageReceived(BMessage* msg)
         int32 index = fTaskListsView->CurrentSelection();
         if (index < 0 || index >= (int32)fTaskLists.size()) break;
         const TaskList& tl = fTaskLists[index];
-        BAlert* alert = new BAlert("Delete List",
-                                   ("Delete list \"" + tl.title + "\" and all its tasks?").c_str(),
-                                   "Cancel", "Delete", nullptr,
+        BString deleteListMsg(B_TRANSLATE("Delete list \"%title%\" and all its tasks?"));
+        deleteListMsg.ReplaceFirst("%title%", tl.title.c_str());
+        BAlert* alert = new BAlert(B_TRANSLATE("Delete List"),
+                                   deleteListMsg.String(),
+                                   B_TRANSLATE("Cancel"), B_TRANSLATE("Delete"), nullptr,
                                    B_WIDTH_AS_USUAL, B_WARNING_ALERT);
         alert->SetShortcut(0, B_ESCAPE);
         int32 result = alert->Go();
