@@ -49,6 +49,16 @@ public:
         return 0;
     }
 
+    std::vector<std::string> keys() const {
+        std::vector<std::string> result;
+        if (fType == JSON_OBJECT) {
+            result.reserve(fObject.size());
+            for (auto& kv : fObject)
+                result.push_back(kv.first);
+        }
+        return result;
+    }
+
     const JsonValue& operator[](const std::string& key) const {
         static JsonValue sNull;
         if (fType != JSON_OBJECT) return sNull;

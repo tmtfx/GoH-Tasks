@@ -22,6 +22,7 @@
 #include <Screen.h>
 #include <Messenger.h>
 #include <DateTime.h>
+#include <TabView.h>
 
 #include <cstdio>
 #include <cstring>
@@ -106,6 +107,27 @@ public:
 private:
     std::string fText;
     bool        fHovering;
+};
+
+// ---- FilterTabView: a plain tab strip (no per-tab content) that posts
+//      MSG_TASK_FILTER_CHANGED with the selected index when clicked ----
+
+class FilterTabView : public BTabView {
+public:
+    FilterTabView(BRect frame, const char* name)
+        : BTabView(frame, name, B_WIDTH_FROM_LABEL,
+                   B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP)
+    {
+    }
+
+    void Select(int32 index) override
+    {
+        BTabView::Select(index);
+        BMessage msg(MSG_TASK_FILTER_CHANGED);
+        msg.AddInt32("index", index);
+        if (Window())
+            Window()->PostMessage(&msg);
+    }
 };
 
 // ---- Thread data structs ----
@@ -304,15 +326,36 @@ void MainWindow::BuildMainArea(BView* parent, float y)
     // --- Tasks panel (right) ---
     float tasksX = listsW + 2;
     float tasksW = totalW - tasksX;
-    fTasksView = new BListView(BRect(0, 0, tasksW - B_V_SCROLL_BAR_WIDTH - 6, mainH - 4),
+
+    // Filter tabs (All/Active/Completed/Starred) above the tasks list only.
+    // Each tab's "content" is a throwaway empty view — the strip is just a
+    // selector, it never shows per-tab content; see FilterTabView::Select().
+    FilterTabView* filterTabs = new FilterTabView(
+        BRect(tasksX, y, tasksX + tasksW, y + 30.0f), "task_filter_tabs");
+    static const char* kFilterLabels[4] = { "All", "Active", "Completed", "Starred" };
+    for (int i = 0; i < 4; ++i) {
+        BView* empty = new BView(BRect(0, 0, 1, 1), "empty", B_FOLLOW_NONE, 0);
+        BTab* tab = new BTab();
+        filterTabs->AddTab(empty, tab);
+        tab->SetLabel(kFilterLabels[i]);
+    }
+    float tabStripH = filterTabs->TabHeight();
+    if (tabStripH < 20.0f) tabStripH = 20.0f;
+    filterTabs->ResizeTo(tasksW, tabStripH + 4.0f);
+    parent->AddChild(filterTabs);
+
+    float tasksY = y + tabStripH + 4.0f + 4.0f;
+    float tasksH = mainH - (tasksY - y);
+
+    fTasksView = new BListView(BRect(0, 0, tasksW - B_V_SCROLL_BAR_WIDTH - 6, tasksH - 4),
                                "tasks", B_SINGLE_SELECTION_LIST, B_FOLLOW_ALL);
     fTasksView->SetSelectionMessage(new BMessage(MSG_TASK_SELECTED));
     fTasksView->SetInvocationMessage(new BMessage(MSG_TASK_SELECTED));
     fTasksScroll = new BScrollView("tasks_scroll", fTasksView,
                                    B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP_BOTTOM,
                                    0, false, true, B_FANCY_BORDER);
-    fTasksScroll->MoveTo(tasksX, y);
-    fTasksScroll->ResizeTo(tasksW, mainH);
+    fTasksScroll->MoveTo(tasksX, tasksY);
+    fTasksScroll->ResizeTo(tasksW, tasksH);
     parent->AddChild(fTasksScroll);
 
     // --- Detail panel (hidden until a task is selected/created; see
@@ -570,15 +613,24 @@ void MainWindow::ApplySearch()
 
     fFilteredTasks.clear();
     for (const Task& t : fTasks) {
-        if (search.empty()) {
-            fFilteredTasks.push_back(t);
-        } else {
+        bool matchesSearch = true;
+        if (!search.empty()) {
             std::string title = t.title;
             std::transform(title.begin(), title.end(), title.begin(),
                            [](unsigned char c){ return std::tolower(c); });
-            if (title.find(search) != std::string::npos)
-                fFilteredTasks.push_back(t);
+            matchesSearch = title.find(search) != std::string::npos;
         }
+
+        bool matchesFilter = true;
+        switch (fTaskFilter) {
+        case 1: matchesFilter = !t.isCompleted(); break;  // Active
+        case 2: matchesFilter = t.isCompleted();  break;  // Completed
+        case 3: matchesFilter = t.starred;        break;  // Starred
+        default: matchesFilter = true;            break;  // All
+        }
+
+        if (matchesSearch && matchesFilter)
+            fFilteredTasks.push_back(t);
     }
 }
 
@@ -1012,6 +1064,14 @@ void MainWindow::MessageReceived(BMessage* msg)
     }
 
     case MSG_SEARCH_CHANGED: {
+        RefreshTaskDisplay();
+        break;
+    }
+
+    case MSG_TASK_FILTER_CHANGED: {
+        int32 index = 0;
+        msg->FindInt32("index", &index);
+        fTaskFilter = index;
         RefreshTaskDisplay();
         break;
     }

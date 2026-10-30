@@ -36,6 +36,7 @@ const uint32 MSG_OPEN_PREFS       = 'pref';
 const uint32 MSG_DUE_LABEL_CLICKED = 'dLCk';
 const uint32 MSG_DUE_DATE_PICKED   = 'dDpk';
 const uint32 MSG_DUE_CLEAR         = 'dClr';
+const uint32 MSG_TASK_FILTER_CHANGED = 'tFlt';
 
 class DueDateLabel;
 
@@ -104,4 +105,5 @@ private:
     int                   fSelectedTaskIndex = -1;
     bool                  fDetailVisible     = false;
     bool                  fIsNewTask         = false;
+    int32                 fTaskFilter        = 0; // 0=All 1=Active 2=Completed 3=Starred
 };

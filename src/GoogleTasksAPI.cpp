@@ -13,6 +13,7 @@
 #include <map>
 #include <cstring>
 #include <cstdio>
+#include <Autolock.h>
 
 static const std::string kBaseUrl = "https://tasks.googleapis.com/tasks/v1";
 
@@ -41,6 +42,7 @@ GoogleTasksAPI::GoogleTasksAPI(GoogleAuth* auth)
 
 void GoogleTasksAPI::loadStarred()
 {
+    BAutolock lock(fStarredLock);
     fStarred.clear();
     std::string path = fSettingsDir + "/starred.json";
     std::ifstream f(path);
@@ -50,34 +52,9 @@ void GoogleTasksAPI::loadStarred()
     try {
         JsonValue j = JsonValue::parse(content);
         if (j.isObject()) {
-            // Iterate: we stored {"taskId": true, ...}
-            // We'll re-serialize and iterate manually via known access
-            // Since JsonValue doesn't expose iterator, we re-parse
-            // Actually let's do it properly by adding an iteration method.
-            // For now, we store the raw JSON and check membership by re-parsing
-            // Use a simpler approach: store and check.
-            // We rebuild by knowing that j is an object. Let's iterate
-            // via a workaround: serialize→find keys with a mini-parser.
-            // Alternative: extend JsonValue with keys(). For now use the
-            // serialize trick to find all true keys.
-            std::string serialized = j.serialize();
-            // Parse key:true pairs
-            size_t pos = 0;
-            while ((pos = serialized.find("\"", pos)) != std::string::npos) {
-                size_t keyStart = pos + 1;
-                size_t keyEnd   = serialized.find("\"", keyStart);
-                if (keyEnd == std::string::npos) break;
-                std::string key = serialized.substr(keyStart, keyEnd - keyStart);
-                // Check for :true after the key
-                size_t colonPos = serialized.find(":", keyEnd);
-                if (colonPos == std::string::npos) break;
-                size_t valStart = colonPos + 1;
-                while (valStart < serialized.size() && serialized[valStart] == ' ')
-                    ++valStart;
-                if (serialized.substr(valStart, 4) == "true") {
+            for (const std::string& key : j.keys()) {
+                if (j[key].isBool() && j[key].boolean())
                     fStarred[key] = true;
-                }
-                pos = keyEnd + 1;
             }
         }
     } catch (...) {}
@@ -85,6 +62,7 @@ void GoogleTasksAPI::loadStarred()
 
 void GoogleTasksAPI::saveStarred()
 {
+    BAutolock lock(fStarredLock);
     std::string path = fSettingsDir + "/starred.json";
     std::ofstream f(path);
     if (!f.is_open()) return;
@@ -102,16 +80,20 @@ void GoogleTasksAPI::saveStarred()
 
 bool GoogleTasksAPI::isStarred(const std::string& taskId) const
 {
+    BAutolock lock(fStarredLock);
     auto it = fStarred.find(taskId);
     return it != fStarred.end() && it->second;
 }
 
 void GoogleTasksAPI::setStarred(const std::string& taskId, bool starred)
 {
-    if (starred)
-        fStarred[taskId] = true;
-    else
-        fStarred.erase(taskId);
+    {
+        BAutolock lock(fStarredLock);
+        if (starred)
+            fStarred[taskId] = true;
+        else
+            fStarred.erase(taskId);
+    }
     saveStarred();
 }
 

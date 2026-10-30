@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <functional>
+#include <Locker.h>
 
 class GoogleAuth;
 
@@ -45,4 +46,5 @@ private:
     std::string fLastError;
     std::string fSettingsDir;
     std::map<std::string, bool> fStarred;
+    mutable BLocker fStarredLock;
 };
