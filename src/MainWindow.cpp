@@ -22,7 +22,7 @@
 #include <Screen.h>
 #include <Messenger.h>
 #include <DateTime.h>
-#include <TabView.h>
+#include <Shape.h>
 
 #include <cstdio>
 #include <cstring>
@@ -109,25 +109,141 @@ private:
     bool        fHovering;
 };
 
-// ---- FilterTabView: a plain tab strip (no per-tab content) that posts
-//      MSG_TASK_FILTER_CHANGED with the selected index when clicked ----
+// ---- FilterTabStrip: a row of pill-shaped filter tabs, rounded on every
+//      corner (not just the top, like the native BTabView bevel). Posts
+//      MSG_TASK_FILTER_CHANGED with the selected index when clicked. ----
 
-class FilterTabView : public BTabView {
+class FilterTabStrip : public BView {
 public:
-    FilterTabView(BRect frame, const char* name)
-        : BTabView(frame, name, B_WIDTH_FROM_LABEL,
-                   B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP)
+    FilterTabStrip(BRect frame, const char* name, const std::vector<std::string>& labels)
+        : BView(frame, name, B_FOLLOW_LEFT_RIGHT | B_FOLLOW_TOP,
+                B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE),
+          fLabels(labels), fSelected(0), fHoverIndex(-1)
     {
+        SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
     }
 
-    void Select(int32 index) override
+    void Draw(BRect updateRect) override
     {
-        BTabView::Select(index);
+        int count = (int)fLabels.size();
+        if (count == 0) return;
+
+        font_height fh;
+        GetFontHeight(&fh);
+
+        for (int i = 0; i < count; ++i) {
+            BRect r = _TabRect(i);
+
+            rgb_color base = ui_color(B_PANEL_BACKGROUND_COLOR);
+            rgb_color fill = base;
+            rgb_color textColor = ui_color(B_CONTROL_TEXT_COLOR);
+            if (i == fSelected) {
+                fill = ui_color(B_CONTROL_HIGHLIGHT_COLOR);
+            } else if (i == fHoverIndex) {
+                fill = tint_color(base, B_DARKEN_1_TINT);
+            }
+
+            BShape shape;
+            _BuildTabShape(r, shape);
+
+            // FillShape()/StrokeShape() position the shape relative to the
+            // view's current pen location, which DrawString() (below) keeps
+            // advancing — reset it so the shape's own coordinates are truly
+            // absolute, otherwise each tab drifts further right than the last.
+            MovePenTo(BPoint(0, 0));
+
+            SetHighColor(fill);
+            FillShape(&shape);
+
+            SetHighColor(ui_color(B_CONTROL_BORDER_COLOR));
+            StrokeShape(&shape);
+
+            SetHighColor(textColor);
+            SetDrawingMode(B_OP_OVER);
+            float textW = StringWidth(fLabels[i].c_str());
+            DrawString(fLabels[i].c_str(),
+                       BPoint(r.left + (r.Width() - textW) / 2.0f,
+                              r.top + (r.Height() + fh.ascent - fh.descent) / 2.0f));
+            SetDrawingMode(B_OP_COPY);
+        }
+    }
+
+    void MouseDown(BPoint where) override
+    {
+        int index = _IndexAt(where);
+        if (index < 0 || index == fSelected)
+            return;
+        fSelected = index;
+        Invalidate();
         BMessage msg(MSG_TASK_FILTER_CHANGED);
-        msg.AddInt32("index", index);
+        msg.AddInt32("index", fSelected);
         if (Window())
             Window()->PostMessage(&msg);
     }
+
+    void MouseMoved(BPoint where, uint32 code, const BMessage* dragMessage) override
+    {
+        int index = (code == B_EXITED_VIEW || code == B_OUTSIDE_VIEW)
+            ? -1 : _IndexAt(where);
+        if (index != fHoverIndex) {
+            fHoverIndex = index;
+            Invalidate();
+        }
+        BView::MouseMoved(where, code, dragMessage);
+    }
+
+private:
+    // Classic file-tab/binder-divider silhouette: convex rounded corners at
+    // the top, concave corners at the base where the tab flares out into
+    // the baseline (like a binder tab, or a "J" hook mirrored on each side).
+    static void _BuildTabShape(BRect r, BShape& shape)
+    {
+        float flare    = 8.0f;   // extra width the base has vs. the top, per side
+        float rTop     = 8.0f;   // top (convex) corner radius
+        float rBottom  = 10.0f;  // base (concave) corner radius
+
+        float topLeftX  = r.left + flare;
+        float topRightX = r.right - flare;
+        float midY       = r.bottom - rBottom;
+
+        shape.MoveTo(BPoint(topLeftX + rTop, r.top));
+        shape.LineTo(BPoint(topRightX - rTop, r.top));                       // top edge
+        shape.ArcTo(rTop, rTop, 0, false, false,
+                    BPoint(topRightX, r.top + rTop));                        // convex top-right
+        shape.LineTo(BPoint(topRightX, midY));                               // right edge
+        shape.ArcTo(rBottom, rBottom, 0, false, true,
+                    BPoint(r.right, r.bottom));                              // concave base-right flare
+        shape.LineTo(BPoint(r.left, r.bottom));                              // base edge (full width)
+        shape.ArcTo(rBottom, rBottom, 0, false, true,
+                    BPoint(topLeftX, midY));                                 // concave base-left flare
+        shape.LineTo(BPoint(topLeftX, r.top + rTop));                        // left edge
+        shape.ArcTo(rTop, rTop, 0, false, false,
+                    BPoint(topLeftX + rTop, r.top));                         // convex top-left
+        shape.Close();
+    }
+
+    BRect _TabRect(int index) const
+    {
+        BRect bounds = Bounds();
+        int count = (int)fLabels.size();
+        float gap = 4.0f;
+        float tabW = (bounds.Width() - gap * (count - 1)) / count;
+        float x = index * (tabW + gap);
+        return BRect(x, bounds.top, x + tabW, bounds.bottom);
+    }
+
+    int _IndexAt(BPoint where) const
+    {
+        for (int i = 0; i < (int)fLabels.size(); ++i) {
+            if (_TabRect(i).Contains(where))
+                return i;
+        }
+        return -1;
+    }
+
+    std::vector<std::string> fLabels;
+    int fSelected;
+    int fHoverIndex;
 };
 
 // ---- Thread data structs ----
@@ -327,24 +443,15 @@ void MainWindow::BuildMainArea(BView* parent, float y)
     float tasksX = listsW + 2;
     float tasksW = totalW - tasksX;
 
-    // Filter tabs (All/Active/Completed/Starred) above the tasks list only.
-    // Each tab's "content" is a throwaway empty view — the strip is just a
-    // selector, it never shows per-tab content; see FilterTabView::Select().
-    FilterTabView* filterTabs = new FilterTabView(
-        BRect(tasksX, y, tasksX + tasksW, y + 30.0f), "task_filter_tabs");
-    static const char* kFilterLabels[4] = { "All", "Active", "Completed", "Starred" };
-    for (int i = 0; i < 4; ++i) {
-        BView* empty = new BView(BRect(0, 0, 1, 1), "empty", B_FOLLOW_NONE, 0);
-        BTab* tab = new BTab();
-        filterTabs->AddTab(empty, tab);
-        tab->SetLabel(kFilterLabels[i]);
-    }
-    float tabStripH = filterTabs->TabHeight();
-    if (tabStripH < 20.0f) tabStripH = 20.0f;
-    filterTabs->ResizeTo(tasksW, tabStripH + 4.0f);
+    // Filter tabs (All/Active/Completed/Starred) above the tasks list only —
+    // pill-shaped, rounded on every corner (see FilterTabStrip).
+    float tabStripH = 26.0f;
+    std::vector<std::string> filterLabels = { "All", "Active", "Completed", "Starred" };
+    FilterTabStrip* filterTabs = new FilterTabStrip(
+        BRect(tasksX, y, tasksX + tasksW, y + tabStripH), "task_filter_tabs", filterLabels);
     parent->AddChild(filterTabs);
 
-    float tasksY = y + tabStripH + 4.0f + 4.0f;
+    float tasksY = y + tabStripH + 8.0f;
     float tasksH = mainH - (tasksY - y);
 
     fTasksView = new BListView(BRect(0, 0, tasksW - B_V_SCROLL_BAR_WIDTH - 6, tasksH - 4),
